@@ -18,7 +18,7 @@ function App(){
   <main>
    <section className="hero"><div className="eyebrow"><Sparkles size={15}/> Intelligence before investment</div><h1>Find property with<br/><em>clarity, not noise.</em></h1><p>DPF helps you discover credible property opportunities, understand the evidence behind them, and take the next step with confidence.</p>
    <div className="searchbox"><Search size={20}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search location, project, property type..." /><select value={location} onChange={e=>setLocation(e.target.value)}><option>All locations</option>{locations.map(x=><option key={x}>{x}</option>)}</select><button onClick={()=>document.getElementById('discover')?.scrollIntoView({behavior:'smooth'})}>Explore</button></div>
-   <div className="trust"><span><ShieldCheck size={17}/> Evidence-led</span><span><MapPin size={17}/> Abuja & beyond</span><span>Local + diaspora</span></div></div>
+   <div className="trust"><span><ShieldCheck size={17}/> Evidence-led</span><span><MapPin size={17}/> Abuja & beyond</span><span>Local + diaspora</span></div>
    <div className="hero-card"><div className="orb"></div><div className="signal">DPF INTELLIGENCE</div><strong>From signal<br/>to decision.</strong><p>Prices. Payment plans. Verification. Developer signals. Buyer fit.</p></div></section>
    <section id="discover" className="section"><div className="section-head"><div><span className="kicker">LIVE CATALOGUE</span><h2>Property intelligence</h2></div><span className="count">{loading?'Loading…':filtered.length+' opportunities'}</span></div>
    {!supabase&&<div className="notice">Connect Supabase using <code>.env.local</code> to load the live intelligence catalogue.</div>}
