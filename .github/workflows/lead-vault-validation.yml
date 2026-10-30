@@ -108,7 +108,7 @@ jobs:
       - name: Verify transactional audit, rollback and function grants
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-transactional-lead-assertions.sql
       - name: Apply transactional follow-up task functions
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261030170000_dpf_transactional_followup_tasks.sql
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261030142507_dpf_transactional_followup_tasks.sql
       - name: Verify follow-up audit, rollback, permissions and owner isolation
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-followup-transaction-assertions.sql
 
