@@ -20,5 +20,6 @@ export default async function handler(req, res) {
   return res.status(200).json({
     ok: true,
     user: { id: result.user.id },
+    workspaces: result.memberships.map(({ owner_id, role }) => ({ ownerId: owner_id, role })),
   })
 }
