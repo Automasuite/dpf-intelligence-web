@@ -89,7 +89,7 @@ export function previewPhoneCsv(input, limits = {}) {
   const rows = parseRows(text, maxColumns)
   if (rows.length < 2) throw csvError('no_data_rows', 'CSV must contain a header and at least one data row.')
 
-  const headers = rows[0].map((value) => value.trim().toLowerCase())
+  const headers = rows[0].map((value) => value.trim().toLowerCase().replace(/[\\s-]+/g, '_'))
   if (headers.some((header) => !header)) throw csvError('blank_header', 'CSV contains a blank column heading.')
   if (new Set(headers).size !== headers.length) throw csvError('duplicate_headers', 'CSV contains duplicate column headings.')
 
