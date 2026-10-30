@@ -34,14 +34,14 @@ Never set SUPABASE_SERVICE_ROLE_KEY, database passwords, or other privileged sec
 
 ## Server-side session verification
 
-A read-only endpoint has also been added at GET /api/lead-vault/session. It extracts the bearer token and verifies it with Supabase Auth on the server, then returns only the authenticated user's ID. It does not query or mutate contact data.
+A read-only endpoint has also been added at GET /api/lead-vault/session. It extracts the bearer token, verifies it with Supabase Auth on the server, and returns the authenticated user's ID plus active workspace IDs and roles. It does not return or mutate contact data.
 
 Configure these server-side environment variables in the approved Vercel project before enabling the endpoint:
 
 - SUPABASE_URL — dedicated DPF project URL.
 - SUPABASE_ANON_KEY — dedicated project's publishable/anon key.
 
-These values are not privileged credentials. No service-role key is used by this session-verification endpoint. Future database-write routes must use a separate server-only service-role secret, strict owner scoping, authorization and audit controls.
+These values are not privileged credentials. No service-role key is used by this session-verification endpoint. The preview, approval and commit routes use a separate server-only service-role secret and enforce membership/role checks before calling restricted database functions.
 
 ## Workspace membership and roles
 
@@ -51,7 +51,7 @@ The server auth helper verifies the Supabase token and then reads active members
 
 No owner membership is seeded yet because the first administrator account has not been created. Once the first account is confirmed and provisioned, a one-time owner membership row must be inserted through an approved administrative process. Staff invitations and membership changes must be performed through a future audited server-side admin route; that route is not implemented yet.
 
-Role names are established, but action-specific permissions for import approval, commit, rollback, export and membership administration must be implemented in the server APIs before those operations are enabled. A role label alone does not authorize a browser-side write.
+Action-specific server permissions are now defined and tested: owner/admin can approve and commit; reviewer can approve but not commit; operator can preview but cannot approve or commit. APIs for rollback, export, membership administration, permission changes and suppression management remain unimplemented. A role label alone does not authorize a browser-side write.
 
 ## Server-only write configuration
 
@@ -77,4 +77,4 @@ The global write kill switch currently blocks all durable preview, approval and 
 
 ## Current state
 
-The sign-in gate is implemented in the isolated feature branch. No administrator account has been created. No Supabase Auth settings or Vercel environment variables have been changed. The Lead Vault migration is still unapplied, and the workspace remains a prototype with session-only lead capture and preview-only CSV processing.
+The sign-in gate, server session check, workspace membership model and role guards are implemented in the isolated feature branch. Durable preview, approval and commit APIs are also present but remain blocked by the default-off write kill switch. No administrator account has been created. No Supabase Auth settings or Vercel environment variables have been changed. The four Lead Vault migrations remain unapplied, and the browser workspace still uses session-only lead capture and local-only CSV preview.
