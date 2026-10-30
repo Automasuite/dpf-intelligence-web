@@ -10,9 +10,9 @@
 ## Verified foundation state — 2026-10-30
 
 - Dedicated Supabase project: `DPF Investor Intelligence` (`ksjyqrzdcfikgnroceju`), region `eu-central-1`, status `ACTIVE_HEALTHY`.
-- Applied migrations: `dpf_lead_intelligence_foundation`, `dpf_hardening_and_fk_indexes`, `dpf_privilege_minimization`, and `dpf_workspace_membership`.
+- Applied migrations: `dpf_lead_intelligence_foundation`, `dpf_hardening_and_fk_indexes`, `dpf_privilege_minimization`, and `dpf_workspace_membership` (four applied migration records).
 - Private tables created with RLS: `dpf_leads`, `dpf_lead_events`, `dpf_follow_up_tasks`, `dpf_agent_runs`, and `dpf_workspace_members`.
-- Explicit Data API grants are least-privilege; anonymous table access is disabled. Authenticated users can read only their workspace membership; agent-run lifecycle writes are server-side only.
+- Explicit Data API grants are least-privilege; anonymous table access is disabled. Authenticated users can read only their own workspace membership; agent-run lifecycle writes are server-side only. Browser-created audit events are restricted to human actions and are append-only.
 - Security advisor returned no findings. Foreign-key indexes are installed; unused-index notices are expected while tables are empty.
 - Auth user count is currently zero. No administrator account or owner membership has been provisioned yet.
 
