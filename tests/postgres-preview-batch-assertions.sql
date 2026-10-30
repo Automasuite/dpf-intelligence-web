@@ -40,12 +40,33 @@ begin
     'Preview batch test',
     'Imported CSV test',
     'NG',
-    '[]'::jsonb
+    '[
+      {"source_row_key":"row-2","row_number":2,"raw_phone":"08015550001","normalized_phone_e164":"+2348015550001","phone_validation_status":"valid","validation_reason":null,"row_status":"valid","row_fingerprint":"sha256-a","supplied_name":"First","source_reference":"ref-a"},
+      {"source_row_key":"row-3","row_number":3,"raw_phone":"08015550001","normalized_phone_e164":"+2348015550001","phone_validation_status":"valid","validation_reason":null,"row_status":"duplicate_in_batch","row_fingerprint":"sha256-b","supplied_name":"Duplicate","source_reference":"ref-b"},
+      {"source_row_key":"row-4","row_number":4,"raw_phone":"123","normalized_phone_e164":null,"phone_validation_status":"needs_review","validation_reason":"ambiguous_number","row_status":"needs_review","row_fingerprint":"sha256-c","supplied_name":null,"source_reference":null}
+    ]'::jsonb
   );
 
   if (v_retry->>'batch_id')::uuid <> v_batch_id or (v_retry->>'already_created')::boolean is not true then
     raise exception 'Preview retry did not return the original batch';
   end if;
+
+  begin
+    perform public.dpf_create_contact_import_batch(
+      '00000000-0000-4000-8000-000000000001',
+      '00000000-0000-4000-8000-000000000005',
+      'operator-preview-request',
+      'Changed batch name',
+      'Imported CSV test',
+      'NG',
+      '[
+        {"source_row_key":"row-2","row_number":2,"raw_phone":"08015550001","normalized_phone_e164":"+2348015550001","phone_validation_status":"valid","validation_reason":null,"row_status":"valid","row_fingerprint":"sha256-a","supplied_name":"First","source_reference":"ref-a"}
+      ]'::jsonb
+    );
+    raise exception 'Reused idempotency key with changed payload unexpectedly succeeded';
+  exception when raise_exception then
+    if sqlerrm not like '%different request payload%' then raise; end if;
+  end;
 
   select count(*) into v_count from public.dpf_contact_import_rows where batch_id=v_batch_id;
   if v_count <> 3 then raise exception 'Expected 3 preserved source rows, found %',v_count; end if;
