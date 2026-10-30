@@ -104,7 +104,7 @@ jobs:
       - name: Apply the DPF lead foundation
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202610290001_lead_intelligence.sql
       - name: Apply transactional lead mutation functions
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261030160000_dpf_transactional_lead_mutations.sql
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261030141535_dpf_transactional_lead_mutations.sql
       - name: Verify transactional audit, rollback and function grants
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-transactional-lead-assertions.sql
 
