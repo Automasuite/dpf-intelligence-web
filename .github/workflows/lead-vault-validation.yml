@@ -58,6 +58,10 @@ jobs:
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202610300001_dpf_lead_vault.sql
       - name: Verify RLS, grants, tenant isolation and provenance idempotency
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-migration-assertions.sql
+      - name: Apply workspace membership migration to disposable PostgreSQL
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202610300002_dpf_workspace_membership.sql
+      - name: Verify role-based workspace access and suspension
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-membership-assertions.sql
 
   production-build:
     name: Vite production build
