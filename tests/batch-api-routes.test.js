@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import approveHandler from '../api/lead-vault/batches/[id]/approve.js'
 import commitHandler from '../api/lead-vault/batches/[id]/commit.js'
 
+process.env.LEAD_VAULT_WRITES_ENABLED = 'true'
+
 function responseRecorder() {
   return {
     headers: {},
@@ -21,6 +23,15 @@ for (const [name, handler] of [['approve', approveHandler], ['commit', commitHan
     assert.equal(res.statusCode, 405)
     assert.equal(res.headers['Cache-Control'], 'no-store')
     assert.equal(res.body.error, 'method_not_allowed')
+  })
+
+  test(name + ' route fails closed when the write kill switch is off', async () => {
+    process.env.LEAD_VAULT_WRITES_ENABLED = 'false'
+    const res = responseRecorder()
+    await handler({ method: 'POST', query: { id: '20000000-0000-4000-8000-000000000001' }, headers: {} }, res)
+    assert.equal(res.statusCode, 503)
+    assert.equal(res.body.error, 'lead_vault_writes_disabled')
+    process.env.LEAD_VAULT_WRITES_ENABLED = 'true'
   })
 
   test(name + ' route rejects malformed batch IDs before authentication', async () => {
