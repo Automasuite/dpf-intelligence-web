@@ -4,14 +4,14 @@
 
 The additive migration `supabase/migrations/202610300001_dpf_lead_vault.sql` is committed to `feature/dpf-lead-vault-v1` for review only. It has **not** been applied to any database.
 
-The connected Supabase account currently lists four projects. None is clearly identified as a dedicated DPF project. The project named "Automasuite's Project" is inactive and is not assumed to be DPF.
+The dedicated Supabase project `DPF Investor Intelligence` has now been created in the Automasuite organization in `eu-central-1` and verified `ACTIVE_HEALTHY`. Its project reference is `ksjyqrzdcfikgnroceju`. The live project currently reports no application migrations. The migration remains review-only and has not been applied.
 
 ## Data model
 
 - `dpf_contact_records`: one canonical contact per owner and normalized E.164 phone; unresolved numbers remain without a canonical phone identity.
 - `dpf_contact_import_batches`: source, explicit country context, workflow status and validation counters.
-- `dpf_contact_import_rows`: raw phone, normalized result, row fingerprint, validation reason and idempotent batch row key.
-- `dpf_contact_sources`: provenance links from a canonical contact back to each source row.
+- `dpf_contact_import_rows`: raw phone, normalized result, row fingerprint, validation reason and idempotent batch row key. Composite owner-scoped foreign keys prevent cross-owner parent/child links.
+- `dpf_contact_sources`: provenance links from a canonical contact back to each source row, with separate unique indexes for imported rows and manual-source records so NULL values cannot bypass idempotency.
 - `dpf_contact_permissions`: one permission record per contact and channel; defaults to unknown.
 - `dpf_contact_suppressions`: channel-specific or global suppression. Active suppression overrides permission.
 - `dpf_lead_vault_audit_events`: append-oriented audit history with actor, action, entity and request ID.
@@ -41,7 +41,7 @@ The connected Supabase account currently lists four projects. None is clearly id
 
 ## Review gates before applying
 
-- Identify and explicitly approve the dedicated DPF Supabase project.
+- Dedicated DPF Supabase project is identified and created; confirm its ownership and project reference before deployment.
 - Confirm the intended DPF administrator and user-authentication model.
 - Apply the migration to a disposable PostgreSQL/Supabase test environment first.
 - Test RLS with two users, anon, authenticated and service-role access.
@@ -59,3 +59,11 @@ The DPF workspace now includes a client-side CSV preview at `#lead-vault-import`
 - Shows normalized phone, validation result, in-file duplicates, and row-level reason.
 - The "Mark preview reviewed" action only acknowledges the preview in browser memory. It does not approve a database import or write records.
 - Existing-database duplicate checks, durable batch records, canonical contact creation, and import commit remain unavailable until the dedicated database and trusted server routes exist.
+
+
+## Latest schema-hardening review
+
+- Added composite `(id, owner_id)` parent keys and owner-scoped foreign keys for batches, rows, contacts, permissions, suppressions, sources and audit batch references.
+- Added deterministic source-row uniqueness for imported provenance and a separate uniqueness rule for manual provenance; this closes the NULL-related duplicate gap in the original unique constraint.
+- The SQL uses PostgreSQL 15+ column-list `ON DELETE SET NULL` syntax; the verified project runs PostgreSQL 17.
+- This is static review only. The migration has not been executed against the live database or a disposable test database. Before deployment, run it against a disposable PostgreSQL 17 environment and verify SQL syntax, RLS behavior, role grants, tenant-isolation tests, duplicate/retry behavior and rollback.
