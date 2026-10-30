@@ -81,7 +81,7 @@ test('reconciliation links existing contacts without overwriting details', () =>
   })
   assert.equal(plan.rows[0].action, 'link_existing_contact')
   assert.equal(plan.rows[0].contactId, 'contact-7')
-  assert.equal(plan.rows[0].suppliedNameForReview, 'New supplied name')
+  assert.equal(plan.rows[0].preserveSuppliedNameForReview, 'New supplied name')
 })
 
 test('reconciliation flags multiple existing canonical records for manual review', () => {
