@@ -1,0 +1,24 @@
+name: Lead Vault validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feature/dpf-lead-vault-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  phone-normalization:
+    name: Phone normalization unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run dependency-free validation tests
+        run: node --test tests/phone-normalization.test.js
