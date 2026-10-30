@@ -4,7 +4,7 @@ import { canPerformWorkspaceAction } from '../api/_lib/role-permissions.js'
 
 test('owners and admins can manage batches and workspace membership', () => {
   for (const role of ['owner','admin']) {
-    for (const action of ['batches.preview','batches.approve','batches.commit','batches.rollback','members.manage','contacts.export']) {
+    for (const action of ['leads.manage','batches.preview','batches.approve','batches.commit','batches.rollback','members.manage','contacts.export']) {
       assert.equal(canPerformWorkspaceAction(role, action), true, `${role} should be allowed ${action}`)
     }
   }
@@ -28,4 +28,8 @@ test('unknown roles and actions are denied by default', () => {
   assert.equal(canPerformWorkspaceAction('superuser','contacts.read'), false)
   assert.equal(canPerformWorkspaceAction('operator','unknown.action'), false)
   assert.equal(canPerformWorkspaceAction(null,'contacts.read'), false)
+})
+
+test('operators and reviewers cannot manage lead records', () => {
+  for (const role of ['operator','reviewer']) assert.equal(canPerformWorkspaceAction(role,'leads.manage'), false)
 })
