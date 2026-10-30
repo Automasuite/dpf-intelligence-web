@@ -6,7 +6,7 @@
 - Private workspace: `workspace.html`, `src/workspace.jsx`, `src/workspace.css`.
 - Authentication/session endpoint: `api/lead-vault/session.js`.
 - Owner-scoped lead collection API (GET/POST/PATCH): `api/lead-vault/leads/index.js`.
-- Transactional lead mutation functions: `dpf_create_lead_with_event` and `dpf_update_lead_with_event` in `supabase/migrations/20261030160000_dpf_transactional_lead_mutations.sql`.
+- Transactional lead mutation functions: `dpf_create_lead_with_event` and `dpf_update_lead_with_event` in `supabase/migrations/20261030141535_dpf_transactional_lead_mutations.sql`.
 - Server-side Supabase clients: `api/_lib/auth.js`, `api/_lib/admin-client.js`.
 - Runtime configuration-presence endpoint: `GET /api/health`.
 
