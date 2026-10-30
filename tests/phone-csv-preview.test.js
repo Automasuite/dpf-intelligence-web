@@ -52,7 +52,6 @@ test('rejects inconsistent row widths and empty data', () => {
   assert.throws(() => previewPhoneCsv('phone\n'), { code: 'no_data_rows' })
 })
 
-import { buildReconciliationPlan } from '../src/lib/reconciliation-plan.js'
 
 const reconciliationRow = (sourceRowKey, rowNumber, normalized, extra = {}) => ({
   sourceRowKey, rowNumber, rawPhone: normalized, status: 'valid', normalized, ...extra,
