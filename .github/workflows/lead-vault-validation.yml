@@ -21,4 +21,4 @@ jobs:
         with:
           node-version: 22
       - name: Run dependency-free validation tests
-        run: node --test tests/phone-normalization.test.js
+        run: npm test
