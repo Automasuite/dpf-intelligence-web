@@ -98,6 +98,7 @@ Workspace membership is owner-scoped. The canonical owner_id on contact records 
 ## Implemented server endpoints and activation gate
 
 - GET /api/lead-vault/session verifies the Supabase access token and requires at least one active workspace membership before the workspace UI renders.
+- POST /api/lead-vault/batches/preview parses the supplied phone-only CSV server-side, normalizes using only explicit country context, computes row fingerprints, and atomically stores the durable preview batch and all source rows through the preview RPC.
 - POST /api/lead-vault/batches/:id/approve verifies the caller's active membership and the batches.approve permission, then calls the database approval RPC.
 - POST /api/lead-vault/batches/:id/commit verifies the caller's active membership and the batches.commit permission, then calls the transactional database commit RPC.
 - Both mutation routes require an Idempotency-Key (or X-Request-Id) header and validate the batch UUID.
@@ -109,11 +110,10 @@ Workspace membership is owner-scoped. The canonical owner_id on contact records 
 
 The write kill switch must remain off until all of the following are complete:
 
-1. Implement durable batch preview creation and server-side CSV validation/persistence.
-2. Implement review/skip handling for unresolved rows and an immutable approval snapshot.
-3. Add API rate limiting and request-size controls for every mutation route.
-4. Add tested rollback and recovery operations.
-5. Configure server-side environment variables in the approved Vercel project, including SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY; the service-role key is server-only.
+1. Implement review/skip handling for unresolved rows and immutable approval snapshot review.
+2. Add API rate limiting and request-size controls for every mutation route.
+3. Add tested rollback and recovery operations.
+4. Configure server-side environment variables in the approved Vercel project, including SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY; the service-role key is server-only.
 6. Provision the initial owner membership through an approved administrative process.
 7. Complete live Supabase integration tests and backup/restore verification.
 8. Obtain explicit approval before applying any of the three pending SQL migrations or enabling the write kill switch.
