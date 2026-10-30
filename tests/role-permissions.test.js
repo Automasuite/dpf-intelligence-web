@@ -33,3 +33,5 @@ test('unknown roles and actions are denied by default', () => {
 test('operators and reviewers cannot manage lead records', () => {
   for (const role of ['operator','reviewer']) assert.equal(canPerformWorkspaceAction(role,'leads.manage'), false)
 })
+
+// Follow-up permission coverage.
