@@ -29,6 +29,10 @@ export function normalizePhone(input, options = {}) {
     return result(raw, 'needs_review', null, 'extension_present')
   }
 
+  if (!/^\\+?[0-9\\s().-]+$/.test(value)) {
+    return result(raw, 'invalid', null, 'unsupported_characters')
+  }
+
   const hasPlus = value.startsWith('+')
   const digits = digitsOnly(value)
 
