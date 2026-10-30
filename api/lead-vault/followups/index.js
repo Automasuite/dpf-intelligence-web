@@ -38,7 +38,7 @@ export default async function handler(req,res){
     return fail(res,405,'method_not_allowed')
   }
 
-  const permission=req.method==='GET'?'contacts.read':'followups.manage'
+  const permission=req.method==='GET'?'contacts.read':'leads.manage'
   const access=await requireWorkspacePermission(req,permission)
   if(access.error)return fail(res,access.status,access.error)
   const membership=access.memberships[0]
