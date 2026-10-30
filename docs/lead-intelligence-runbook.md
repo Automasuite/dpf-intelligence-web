@@ -18,7 +18,7 @@
 - Explicit Data API grants are least-privilege; anonymous table access is disabled. Authenticated users can read their own workspace membership; agent-run lifecycle writes are server-side only. Browser-created audit events are restricted to human actions and are append-only.
 - Security advisor returned no findings. Foreign-key indexes are installed; unused-index notices are expected while tables are empty.
 - Initial administrator Auth user has been verified by UUID, and an active `owner` membership has been inserted and independently queried in `dpf_workspace_members`.
-- No contact records have been imported. No lead CRUD writes have been made.
+- No contact records have been imported. No persistent business leads or follow-up tasks exist; all transactional test fixtures were rolled back.
 
 ## Current limitations and verified code findings
 
@@ -40,7 +40,7 @@
 4. Pending: identify the exact Vercel project linked to this repository and verify its production/preview branch configuration. Do not guess based on project name.
 5. Pending: configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` only in the verified DPF deployment. Configure `SUPABASE_SERVICE_ROLE_KEY` only if a reviewed server-side route needs it; keep it server-only.
 6. Pending: verify deployed `GET /api/health`, administrator sign-in, and `GET /api/lead-vault/session` using a real session. Do not ask the user to share passwords, access tokens, or secret keys.
-7. In progress: transactional audited lead create/update/archive functions are applied to the dedicated DPF database. `POST` now uses the transactional create RPC; `PATCH ?id=<uuid>` uses the transactional update RPC. Owner ID is derived from verified membership, and RPC execution is restricted to `service_role`; `anon` and `authenticated` have no execute grant. The live function grants and security-definer status were queried and verified. The SQL functions have not yet passed the newly added dedicated CI transaction/rollback test. Follow-up task APIs and UI integration remain pending. Verify route tests, production build, and deployed runtime before enabling UI mutations.
+7. Completed in code, live database and CI: transactional audited lead create/update functions are applied. `POST` uses the create RPC; `PATCH ?id=<uuid>` uses the update RPC. Owner ID comes from verified workspace membership. RPC execution is restricted to `service_role`; `anon` and `authenticated` are denied. PostgreSQL 17 CI run #130 passed migration/security smoke tests, transactional lead and follow-up tests, application tests and the Vite production build. Stage-change controls remain disabled in the UI until deployed runtime verification.
 8. Pending: reconcile the import pipeline with the current foundation; add missing schema only through a reviewed additive migration, tests, idempotency, row limits, duplicate handling, and approval workflow. Keep imports disabled until preview and commit tests pass.
 9. Pending: add a server-side agent-router adapter. Keep provider API keys in server-side environment variables only; never use a `VITE_*` prefix for secrets.
 10. Pending: first allow read-only lead discovery and source citation. Deduplicate candidates and require a human to approve imported records.
