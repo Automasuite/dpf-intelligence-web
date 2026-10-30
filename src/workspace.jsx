@@ -1,8 +1,9 @@
-import React,{useMemo,useState} from 'react'
+import React,{useEffect,useMemo,useState} from 'react'
+import {createClient} from '@supabase/supabase-js'
 import {createRoot} from 'react-dom/client'
 import {Activity,ArrowDownRight,ArrowRight,Building2,CalendarClock,CheckCircle2,ChevronDown,Command,Filter,Flame,LayoutDashboard,Plus,Search,Settings2,ShieldCheck,Target,Users,Wallet,Workflow,X} from 'lucide-react'
 import './workspace.css'
-import {Upload,FileSpreadsheet,AlertCircle,Check,ShieldAlert} from 'lucide-react'
+import {Upload,FileSpreadsheet,AlertCircle,Check,ShieldAlert,LogIn,LogOut,LockKeyhole} from 'lucide-react'
 import {previewPhoneCsv} from './lib/phone-csv-preview.js'
 import {normalizePhone} from './lib/phone-normalization.js'
 
@@ -19,7 +20,7 @@ function classifyImport(parsed,countryHint){
 
 const stages=['Signal','Intent','Qualified','Matched','Conversation','Inspection','Transaction']
 const money=n=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(Number(n||0))
-function App(){
+function WorkspaceApp({user,onSignOut}){
  const [leads,setLeads]=useState([])
  const [showForm,setShowForm]=useState(false)
  const [search,setSearch]=useState('')
@@ -65,7 +66,7 @@ function App(){
    <div className="sidebar-bottom"><div className="security-pill"><ShieldCheck size={16}/><span><b>Human-controlled</b><small>Actions require approval</small></span></div><a className="side-link" href="/"><ArrowRight size={16}/>Back to public site</a></div>
   </aside>
   <main className="ws-main">
-   <header className="ws-topbar"><div className="crumb">DPF <span>/</span> Intelligence workspace</div><div className="top-actions"><span className="environment"><i/>Prototype environment</span><button className="icon-button" aria-label="Settings"><Settings2 size={18}/></button><div className="avatar">TO</div></div></header>
+   <header className="ws-topbar"><div className="crumb">DPF <span>/</span> Intelligence workspace</div><div className="top-actions"><span className="environment"><i/>Prototype environment</span><button className="icon-button" aria-label="Settings"><Settings2 size={18}/></button><span className="auth-user">{user?.email||"Authenticated"}</span><button className="auth-signout" onClick={onSignOut} aria-label="Sign out"><LogOut size={15}/></button></div></header>
    <section id="overview" className="ws-page-head"><div><div className="ws-eyebrow"><Command size={14}/> SIGNAL-TO-DEAL OPERATING SYSTEM</div><h1>Lead intelligence <em>workspace.</em></h1><p>Turn market signals into qualified conversations, relevant matches and real property transactions.</p></div><div className="head-actions"><a className="secondary-action" href="#lead-vault-import"><Upload size={16}/> Import contacts</a><button className="primary-action" onClick={()=>setShowForm(true)}><Plus size={17}/> Add a lead</button></div></section>
    <div className="prototype-alert"><Activity size={17}/><span><b>Prototype workspace</b> — lead records currently live only in this browser session. CRM persistence, live agent routing and external outreach are not connected yet.</span></div>
    {notice&&<div className="ws-notice"><CheckCircle2 size={17}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
@@ -113,4 +114,52 @@ function App(){
   {showForm&&<div className="modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setShowForm(false)}}><form className="lead-modal" onSubmit={addLead}><div className="modal-heading"><div><span className="ws-eyebrow">MANUAL LEAD CAPTURE</span><h2>Add a lead</h2><p>Capture what is known. Leave uncertain details blank.</p></div><button type="button" className="icon-button" onClick={()=>setShowForm(false)} aria-label="Close"><X size={18}/></button></div><div className="form-grid"><label>Full name *<input required value={form.name} onChange={e=>update('name',e.target.value)} placeholder="Buyer or contact name"/></label><label>Phone / WhatsApp *<input required value={form.phone} onChange={e=>update('phone',e.target.value)} placeholder="+234…"/></label><label>Budget (₦)<input type="number" min="0" value={form.budget} onChange={e=>update('budget',e.target.value)} placeholder="Buyer-stated budget"/></label><label>Preferred location<input value={form.location} onChange={e=>update('location',e.target.value)} placeholder="e.g. Lokogoma, Abuja"/></label><label>Property type<input value={form.propertyType} onChange={e=>update('propertyType',e.target.value)} placeholder="Land, apartment, house…"/></label><label>Buying timeline<select value={form.timeline} onChange={e=>update('timeline',e.target.value)}><option value="">Not yet established</option><option>Immediate (0–30 days)</option><option>1–3 months</option><option>3–6 months</option><option>Researching / later</option></select></label><label>Lead source<select value={form.source} onChange={e=>update('source',e.target.value)}><option>Manual entry</option><option>WhatsApp</option><option>Facebook</option><option>Instagram</option><option>Website enquiry</option><option>Referral</option><option>Public listing</option><option>Agent router</option></select></label><label className="wide-field">Notes / unresolved questions<textarea value={form.notes} onChange={e=>update('notes',e.target.value)} placeholder="Need, motivation, concerns, next question…"/></label></div><div className="modal-foot"><span>Saved to session only until database connection is added.</span><button type="button" className="secondary-action" onClick={()=>setShowForm(false)}>Cancel</button><button className="primary-action" type="submit"><Plus size={15}/> Capture lead</button></div></form></div>}
  </div>
 }
+
+const supabaseUrl=import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey=import.meta.env.VITE_SUPABASE_ANON_KEY
+const authClient=supabaseUrl&&supabaseAnonKey?createClient(supabaseUrl,supabaseAnonKey):null
+
+function App(){
+ const [session,setSession]=useState(null)
+ const [checking,setChecking]=useState(Boolean(authClient))
+ const [email,setEmail]=useState('')
+ const [password,setPassword]=useState('')
+ const [busy,setBusy]=useState(false)
+ const [error,setError]=useState('')
+ useEffect(()=>{
+  if(!authClient){setChecking(false);return}
+  let active=true
+  authClient.auth.getSession().then(({data,error})=>{
+   if(!active)return
+   if(error)setError('Unable to verify your session. Please try again.')
+   setSession(data?.session||null);setChecking(false)
+  })
+  const {data:{subscription}}=authClient.auth.onAuthStateChange((_event,nextSession)=>{
+   if(active){setSession(nextSession);setChecking(false);setError('')}
+  })
+  return()=>{active=false;subscription.unsubscribe()}
+ },[])
+ async function signIn(event){
+  event.preventDefault();setError('')
+  if(!authClient)return
+  setBusy(true)
+  const {data,error}=await authClient.auth.signInWithPassword({email:email.trim(),password})
+  setBusy(false)
+  if(error){setError('Sign-in failed. Check your credentials or ask the DPF administrator to verify your account.');return}
+  setSession(data.session||null);setPassword('')
+ }
+ async function signOut(){
+  if(!authClient)return
+  setBusy(true)
+  const {error}=await authClient.auth.signOut()
+  setBusy(false)
+  if(error)setError('Sign-out could not be confirmed. Please retry.')
+  else setSession(null)
+ }
+ if(!authClient)return <div className="auth-shell"><section className="auth-card"><div className="auth-mark">DPF</div><span className="auth-kicker">SECURE WORKSPACE SETUP</span><h1>Authentication is not configured.</h1><p>Connect the dedicated DPF Supabase project using the public project URL and publishable key in your deployment environment. No lead data is available on this screen.</p><div className="auth-warning"><LockKeyhole size={17}/> Sign-in remains disabled until the environment is configured.</div></section></div>
+ if(checking)return <div className="auth-shell"><section className="auth-card"><div className="auth-mark">DPF</div><p>Verifying secure workspace session…</p></section></div>
+ if(!session)return <div className="auth-shell"><section className="auth-card"><div className="auth-mark">DPF</div><span className="auth-kicker">DIGITAL PROPERTY FINDER · PRIVATE ACCESS</span><h1>Welcome to your intelligence workspace.</h1><p>Sign in with an administrator-provisioned account. Public self-registration is not available here.</p><form className="auth-form" onSubmit={signIn}><label>Email address<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com"/></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password"/></label>{error&&<div className="auth-error">{error}</div>}<button className="primary-action" type="submit" disabled={busy}>{busy?'Verifying…':<><LogIn size={16}/> Sign in securely</>}</button></form><div className="auth-foot"><LockKeyhole size={14}/> Protected sign-in · No public registration</div></section></div>
+ return <WorkspaceApp user={session.user} onSignOut={signOut}/>
+}
+
 createRoot(document.getElementById('root')).render(<App/>)
