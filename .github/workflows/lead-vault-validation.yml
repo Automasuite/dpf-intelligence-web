@@ -24,7 +24,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Run dependency-free validation tests
+      - name: Install exact locked dependencies
+        run: npm ci
+      - name: Run unit and API guard tests
         run: npm test
 
   migration-smoke-test:
