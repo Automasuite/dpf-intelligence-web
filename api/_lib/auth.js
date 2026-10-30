@@ -1,10 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-export function readBearerToken(req) {
-  const header = req.headers?.authorization || req.headers?.Authorization || ''
-  const match = /^Bearer\s+([^\s]+)$/i.exec(String(header).trim())
-  return match?.[1] || null
-}
+export { readBearerToken } from './bearer-token.js'
+import { readBearerToken } from './bearer-token.js'
+
 
 export async function getAuthenticatedUser(req) {
   const token = readBearerToken(req)
