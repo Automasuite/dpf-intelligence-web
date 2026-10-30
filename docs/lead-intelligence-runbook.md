@@ -83,10 +83,10 @@ Open `/api/health`. Expected response is HTTP 200 with `ok: true`. A status of `
 
 ## Transactional follow-up task implementation — 2026-10-30
 
-- Applied live migration `dpf_transactional_followup_tasks` to the dedicated DPF Supabase project.
+- Applied live migration `dpf_transactional_followup_tasks` to the dedicated DPF Supabase project. Repository migration: `supabase/migrations/20261030142507_dpf_transactional_followup_tasks.sql`.
 - Added `dpf_create_follow_up_task_with_event` and `dpf_update_follow_up_task_with_event`. Both use `SECURITY INVOKER`, an empty search path, explicit schema-qualified relations, and service-role-only execution.
 - Follow-up task creation and update/completion/cancellation are atomic with the corresponding `followup_scheduled` event on the associated lead timeline. Completion sets `completed_at`; reopening clears it.
 - Cross-owner lead/task association is rejected. API owner scope is derived from the verified workspace membership, never request payload.
 - Added `GET/POST/PATCH /api/lead-vault/followups`. Reads require `contacts.read`; writes require existing `leads.manage` (owner/admin). GET supports all, overdue and next-seven-day upcoming views, optional lead/status filters, and a capped result size.
 - Added route authentication tests and PostgreSQL rollback, grant and cross-owner assertions. A live transaction test passed; all fixtures were rolled back. No business lead or follow-up records were persisted.
-- The follow-up UI is not yet wired to these endpoints. CI run #116 is the active validation of the API/test/migration branch; report success only after its jobs complete.
+- The workspace now loads follow-up tasks, shows overdue and next-seven-day counts, allows owner/admin users to schedule tasks from lead cards, and supports completion/cancellation. Reviewers can read but do not see mutation controls. No external messages are sent. Final CI is running against the complete UI/API/migration snapshot; production deployment and live browser verification remain pending.
