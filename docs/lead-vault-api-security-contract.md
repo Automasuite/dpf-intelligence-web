@@ -1,82 +1,33 @@
 # DPF Lead Vault — server API and security contract
 
-## Status
+## Current implementation status
 
-Design contract only. No API routes in this document are implemented or live. The current workspace is a browser-only prototype; manual lead capture remains in React state and the CSV importer remains preview-only. The DPF Supabase project exists, but its Lead Vault migration has not been applied.
+The isolated feature branch contains a protected workspace sign-in gate, server-side Supabase session verification, active workspace membership checks, role-based server permission guards, a durable CSV preview API, batch approval and transactional commit APIs, and four additive Lead Vault SQL migrations.
+
+The browser workspace still uses its local preview and session-only lead capture. It has not yet been wired to the durable preview API. The write kill switch is off by default. No Lead Vault migration has been applied to the dedicated DPF Supabase project, no administrator membership has been provisioned, and no customer records have been imported.
 
 ## Trust boundaries
 
-- Browser code is untrusted. It may parse a CSV for preview and display data returned by authorized APIs, but it must never decide owner identity, approve imports, merge contacts, set consent, bypass suppression, or write directly to Lead Vault tables.
-- Every API request must authenticate the caller with Supabase Auth and derive owner_id from the verified user identity. Ignore any owner ID supplied in request bodies or query strings.
-- The server may use the Supabase service-role key for narrowly scoped writes only after authentication, authorization, validation, rate limiting and audit preparation. The key must exist only in server-side environment variables; never use a VITE_ prefix for it.
-- Public catalogue access and private Lead Vault access are separate authorization domains. Do not expose contact records through public catalogue queries.
-- No agent or automation may send messages, export contacts, change permission, or lift a suppression without a separately authorized action and auditable human approval.
+- Browser code is untrusted. It may parse a CSV for immediate preview and display authorized API responses, but it must not decide owner identity, approve imports, merge contacts, set permission, bypass suppression, or write directly to Lead Vault tables.
+- Every private API verifies the Supabase access token and derives the actor ID from the verified user. Ignore actor/owner IDs supplied by the browser unless they are checked against the caller's active workspace memberships.
+- The server may use the Supabase service-role key only for narrowly scoped database operations after authentication and role checks. It exists only in server-side environment variables; never use a VITE_ prefix.
+- Contact records use the workspace owner's user ID as owner_id. Staff user IDs must never be substituted for that canonical workspace owner ID.
+- No agent or automation may message contacts, export records, change permission, or lift a suppression without a separately authorized and auditable human action.
 
-## Proposed endpoints
+## Implemented API routes
 
-All endpoints are same-origin /api/lead-vault/*, require HTTPS and a verified Supabase access token, and return Cache-Control: no-store.
+All routes return Cache-Control: no-store, require HTTPS and use a verified Supabase access token for private access.
 
-| Method and route | Purpose | Required controls |
+| Method and route | Status | Purpose and controls |
 |---|---|---|
-| POST /api/lead-vault/batches/preview | Create a durable batch and validate rows | Authenticated owner, 5 MB / 10,000 row / 50 column caps, explicit country context, server-side revalidation, idempotency key |
-| GET /api/lead-vault/batches/:id | Read batch status and counts | Owner-scoped lookup; never disclose another tenant's batch |
-| POST /api/lead-vault/batches/:id/approve | Approve an immutable preview snapshot | Explicit human confirmation, role authorization, snapshot hash/version check, audit event |
-| POST /api/lead-vault/batches/:id/commit | Transactionally create/link canonical contacts and provenance | Approved batch only, owner-scoped transaction, idempotent retry, no overwriting pre-existing contact data |
-| POST /api/lead-vault/batches/:id/rollback | Reverse only effects created by that batch | Human approval, transaction, preserve pre-existing contacts, retain audit trail |
-| GET /api/lead-vault/contacts | Search/list authorized contacts | Owner-scoped pagination, allowlisted filters, bounded page size |
-| POST /api/lead-vault/contacts/:id/permissions | Record channel permission evidence | Human action, evidence and timestamp required for granted, audit event |
-| POST /api/lead-vault/contacts/:id/suppressions | Add channel/global suppression | Immediate effect, append-only history, audit event |
+| GET /api/lead-vault/session | Implemented | Verifies Supabase token and requires at least one active workspace membership before the workspace renders |
+| POST /api/lead-vault/batches/preview | Implemented, not yet wired to UI | Server parses phone-only CSV, enforces 4 MB / 10,000 row / 50 column caps, applies explicit country context, normalizes phone values, computes SHA-256 row fingerprints, and atomically persists a preview batch and all source rows |
+| POST /api/lead-vault/batches/:id/approve | Implemented, gated | Requires batches.approve permission and an idempotency key; calls the database approval RPC |
+| POST /api/lead-vault/batches/:id/commit | Implemented, gated | Requires batches.commit permission and an idempotency key; calls the transactional database commit RPC |
 
-The final route names may change during implementation, but these invariants must not.
+All three mutation routes require LEAD_VAULT_WRITES_ENABLED=true. If unset or false, they fail closed. They also require SUPABASE_SERVICE_ROLE_KEY on the server; this key is not configured in the application by this work.
 
-## Batch lifecycle and transaction rules
-
-1. Preview is a durable, reviewable batch, not an import.
-2. Server recomputes normalized phone values and validation results. Never trust browser-supplied normalized values or row fingerprints.
-3. Approval binds to an immutable batch snapshot hash. Any row, country-context, or source change invalidates approval.
-4. Commit is allowed only for the approved snapshot. Use a database transaction and a unique (batch_id, source_row_key) idempotency boundary.
-5. Resolve existing contacts only by valid E.164 identity within the same owner. Multiple matches or conflicting identities require manual review; never arbitrarily select one.
-6. Preserve every source row and its provenance. Do not overwrite an existing name, email, source, permission, or note during deduplication.
-7. Unknown permission is never consent. A current channel grant plus no active channel or global suppression is required before any channel action.
-8. Rollback may archive or unlink only records/provenance created by the specified batch. It must never delete or rewrite a pre-existing canonical contact.
-9. Audit every approval, commit, retry, skip, failure, permission change, suppression, export and rollback with actor, timestamp, request ID, batch and result counts. Avoid copying raw phone numbers or sensitive payloads into logs.
-
-## Authentication and authorization decisions still required
-
-- Bootstrap one verified DPF administrator account first; do not create a shared password or expose a public sign-up route by default.
-- Before inviting staff, define explicit roles (for example owner/admin, operator, reviewer) and server-enforced permissions. Do not rely on hidden UI controls.
-- Use short-lived Supabase Auth sessions and server-side user verification on every private API request.
-- Any unauthenticated request receives 401; authenticated but unauthorized requests receive 403 or a non-disclosing 404.
-- Apply per-user and per-IP rate limits. Enforce request-size limits before parsing.
-- Keep secrets out of source control, browser bundles, logs, error responses and health endpoints.
-
-## Observability, recovery and kill switches
-
-- Emit structured request IDs and event counts for preview, approval, commit and rollback; redact phone/email values.
-- Monitor API error rate, latency, auth failures, rate-limit events, database size, storage/bandwidth use and batch failure ratios.
-- Add a server-side LEAD_VAULT_WRITES_ENABLED kill switch. When false, preview may be read-only or disabled by policy, and all commit/permission/suppression mutation routes must fail closed.
-- Back up database content and schema separately. Because the Free Plan does not include automated backups, export encrypted backups to a separately controlled location, retain checksums and test restoration before loading customer records.
-- No autonomous self-repair may change permissions, suppressions, contact identities, or customer records. Such changes require human approval.
-
-## Implementation gates
-
-1. Confirm initial administrator identity and whether staff access is needed at launch.
-2. Implement Supabase Auth sign-in and a protected workspace shell.
-3. Implement server-side auth helpers and role authorization before any write route.
-4. Implement read-only batch/contact APIs and test tenant isolation.
-5. Implement preview persistence, approval, transactional commit, rollback and audit.
-6. Test with two users, anon, authenticated and service-role contexts against a disposable PostgreSQL 17/Supabase environment.
-7. Verify backup/restore, kill switch, logs and usage monitoring.
-8. Only then request approval to apply the migration to the dedicated DPF project and begin a small controlled test import.
-
-## Current exclusions
-
-No bulk messaging, scraping, WhatsApp automation, CRM sync, lead scoring from phone numbers, or agent-initiated outreach is part of this first database milestone. Consent status is tracked separately and defaults to unknown.
-
-
-## Workspace role permission matrix
-
-The membership migration and server permission helper establish this least-privilege baseline:
+## Workspace roles
 
 | Action | Owner | Admin | Operator | Reviewer |
 |---|---:|---:|---:|---:|
@@ -90,32 +41,56 @@ The membership migration and server permission helper establish this least-privi
 | Manage workspace members | Yes | Yes | No | No |
 | Export contacts | Yes | Yes | No | No |
 
-Unknown roles and actions are denied. This is a server-side policy baseline, not a claim that every corresponding endpoint is already implemented. Every future route must call the permission guard before privileged work and must still perform owner-scoped queries and audit logging. Reviewers can approve but cannot commit; an authorized owner or admin performs the commit as a separate action. This separates review from execution.
+Unknown roles and actions are denied. The server helper and permission matrix are implemented. Corresponding APIs for rollback, permission management, member management, contact reads and exports are not yet implemented. A role label alone does not enable an action.
 
-Workspace membership is owner-scoped. The canonical owner_id on contact records remains the workspace owner's user ID; member user IDs must never be substituted for owner_id. Membership changes require a trusted, audited server operation and cannot be performed directly by authenticated browser clients.
+## Batch lifecycle and transaction rules
 
+1. Preview is a durable, reviewable batch, not an import. The preview RPC inserts the batch and all source rows atomically.
+2. The server recomputes normalization and validation; browser-supplied normalized values are never trusted.
+3. Every row is retained with its raw phone, source row key, source reference, validation status and server-generated fingerprint.
+4. A batch cannot be approved while any row is unresolved. Invalid or ambiguous rows must be explicitly skipped through a future reviewer workflow.
+5. Approval stores a snapshot checksum. The current SQL uses MD5 as a change-detection checksum, not as a cryptographic signature. Approved rows are protected by a database trigger against further changes except during the trusted commit function.
+6. Commit is allowed only for an approved snapshot. The database function runs transactionally and is retry-safe.
+7. Resolve existing contacts only by valid E.164 identity within the same owner. Existing names and contact fields are not overwritten.
+8. Every source row gets provenance, including duplicate rows that link to an existing canonical contact.
+9. Unknown permission is never consent. A current channel grant plus no active channel-specific or global suppression is required before any channel action.
+10. Audit approval, commit, retries, skips, failures, permission changes, suppression, export and rollback. Do not place raw phone numbers or sensitive payloads in operational logs.
 
-## Implemented server endpoints and activation gate
+## Authentication and environment configuration
 
-- GET /api/lead-vault/session verifies the Supabase access token and requires at least one active workspace membership before the workspace UI renders.
-- POST /api/lead-vault/batches/preview parses the supplied phone-only CSV server-side, normalizes using only explicit country context, computes row fingerprints, and atomically stores the durable preview batch and all source rows through the preview RPC.
-- POST /api/lead-vault/batches/:id/approve verifies the caller's active membership and the batches.approve permission, then calls the database approval RPC.
-- POST /api/lead-vault/batches/:id/commit verifies the caller's active membership and the batches.commit permission, then calls the transactional database commit RPC.
-- Both mutation routes require an Idempotency-Key (or X-Request-Id) header and validate the batch UUID.
-- Both mutation routes fail closed unless LEAD_VAULT_WRITES_ENABLED is exactly true.
-- Privileged database access is isolated in api/_lib/admin-client.js and reads SUPABASE_SERVICE_ROLE_KEY only on the server. It must never be exposed through VITE_ variables or returned by an API.
-- The approval RPC accepts owner/admin/reviewer roles. The commit RPC accepts owner/admin only. Both RPCs validate the active membership again inside PostgreSQL.
+- Supabase email/password sign-in is implemented; there is no public registration in the application.
+- The workspace requires an active membership. The first owner account and owner membership have not been provisioned.
+- The membership migration provides owner, admin, operator and reviewer roles. Authenticated clients cannot directly create or change memberships.
+- Client environment: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
+- Server environment: SUPABASE_URL and SUPABASE_ANON_KEY for token verification; SUPABASE_SERVICE_ROLE_KEY for trusted database RPC calls.
+- LEAD_VAULT_WRITES_ENABLED must remain unset or false until all activation blockers are cleared and explicit operational approval is given.
+- Never put a service-role key, database password or other privileged credential in a VITE_ variable, client bundle, response or log.
+
+## Observability, reliability and kill switches
+
+- Structured request IDs and result counts are required for preview, approval, commit and rollback. Redact phone and email values from logs.
+- Monitor API error rate, latency, auth failures, rate-limit events, database size, storage/bandwidth usage and batch failure ratios.
+- A global server-side write kill switch is implemented for preview, approval and commit routes. It defaults to off.
+- API rate limiting is not yet implemented. The write kill switch must remain off until per-user and per-IP rate limits are added.
+- Backups and tested restore procedures are not yet configured. Verify encrypted backups, checksums and restoration before importing customer data.
+- No autonomous self-repair may change permissions, suppressions, contact identities or customer records. Such changes require human approval.
 
 ## Remaining activation blockers
 
-The write kill switch must remain off until all of the following are complete:
+1. Add per-user and per-IP API rate limiting.
+2. Add reviewer skip/review endpoints for unresolved rows.
+3. Wire the browser CSV preview interface to the durable preview API and display persisted batch state.
+4. Implement rollback, contact read/search, member management, permission and suppression APIs.
+5. Complete end-to-end authentication and two-user tenant-isolation tests against the actual DPF Supabase project.
+6. Provision the first owner account and membership after the administrator email is confirmed.
+7. Configure server environment variables in the approved Vercel project, without exposing privileged keys.
+8. Verify backups, restore, audit retention and monitoring.
+9. Obtain explicit approval before applying any of the four Lead Vault migrations or enabling the write kill switch.
 
-1. Implement review/skip handling for unresolved rows and immutable approval snapshot review.
-2. Add API rate limiting and request-size controls for every mutation route.
-3. Add tested rollback and recovery operations.
-4. Configure server-side environment variables in the approved Vercel project, including SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY; the service-role key is server-only.
-6. Provision the initial owner membership through an approved administrative process.
-7. Complete live Supabase integration tests and backup/restore verification.
-8. Obtain explicit approval before applying any of the three pending SQL migrations or enabling the write kill switch.
+## Separate legacy-schema migration dependency
 
-The current API routes are code on an isolated branch, not a deployed or active customer-data workflow. No customer data has been imported.
+The branch also contains a separate migration named 20261030140000_dpf_hardening_and_fk_indexes.sql. It references legacy tables created by 202610290001_lead_intelligence.sql. That legacy migration is not included in the four-migration Lead Vault PostgreSQL smoke-test sequence described above. Review and test the legacy migration chain separately before applying the complete Supabase migration directory.
+
+## Current exclusions
+
+No bulk messaging, scraping, WhatsApp automation, CRM sync, lead scoring from phone numbers, or agent-initiated outreach is part of this first database milestone. Consent remains channel-specific and defaults to unknown.
