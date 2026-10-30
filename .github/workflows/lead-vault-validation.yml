@@ -6,6 +6,10 @@ on:
   push:
     branches: [feature/dpf-lead-vault-v1]
 
+concurrency:
+  group: dpf-lead-vault-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
