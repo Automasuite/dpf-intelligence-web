@@ -32,6 +32,17 @@ The app's existing public catalogue also uses these variables. Confirm the catal
 
 Never set SUPABASE_SERVICE_ROLE_KEY, database passwords, or other privileged secrets as VITE_ variables. Those secrets belong only in server-side environment variables for protected API functions after those functions have been implemented and reviewed.
 
+## Server-side session verification
+
+A read-only endpoint has also been added at GET /api/lead-vault/session. It extracts the bearer token and verifies it with Supabase Auth on the server, then returns only the authenticated user's ID. It does not query or mutate contact data.
+
+Configure these server-side environment variables in the approved Vercel project before enabling the endpoint:
+
+- SUPABASE_URL — dedicated DPF project URL.
+- SUPABASE_ANON_KEY — dedicated project's publishable/anon key.
+
+These values are not privileged credentials. No service-role key is used by this session-verification endpoint. Future database-write routes must use a separate server-only service-role secret, strict owner scoping, authorization and audit controls.
+
 ## Required tests before opening the workspace
 
 - Missing environment: setup screen is shown; no workspace content renders.
