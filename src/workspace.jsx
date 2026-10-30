@@ -126,16 +126,35 @@ function App(){
  const [password,setPassword]=useState('')
  const [busy,setBusy]=useState(false)
  const [error,setError]=useState('')
+ async function verifyWorkspaceSession(candidate){
+  if(!candidate){setSession(null);setChecking(false);return}
+  setChecking(true)
+  try{
+   const response=await fetch('/api/lead-vault/session',{headers:{Authorization:`Bearer ${candidate.access_token}`},cache:'no-store'})
+   if(!response.ok){
+    setSession(null)
+    setError(response.status===403?'Your account is not yet assigned to an active DPF workspace. Contact the workspace owner.':'Workspace access could not be verified. Please try again later.')
+    return
+   }
+   const access=await response.json()
+   if(!access?.ok||!Array.isArray(access.workspaces)||access.workspaces.length===0){
+    setSession(null);setError('Your account does not have active DPF workspace access. Contact the workspace owner.');return
+   }
+   setError('');setSession(candidate)
+  }catch{
+   setSession(null);setError('Workspace access could not be verified. Check your connection and retry.')
+  }finally{setChecking(false)}
+ }
  useEffect(()=>{
   if(!authClient){setChecking(false);return}
   let active=true
   authClient.auth.getSession().then(({data,error})=>{
    if(!active)return
-   if(error)setError('Unable to verify your session. Please try again.')
-   setSession(data?.session||null);setChecking(false)
+   if(error){setError('Unable to verify your session. Please try again.');setChecking(false);return}
+   void verifyWorkspaceSession(data?.session||null)
   })
   const {data:{subscription}}=authClient.auth.onAuthStateChange((_event,nextSession)=>{
-   if(active){setSession(nextSession);setChecking(false);setError('')}
+   if(active)void verifyWorkspaceSession(nextSession)
   })
   return()=>{active=false;subscription.unsubscribe()}
  },[])
@@ -146,7 +165,7 @@ function App(){
   const {data,error}=await authClient.auth.signInWithPassword({email:email.trim(),password})
   setBusy(false)
   if(error){setError('Sign-in failed. Check your credentials or ask the DPF administrator to verify your account.');return}
-  setSession(data.session||null);setPassword('')
+  setPassword('');await verifyWorkspaceSession(data.session||null)
  }
  async function signOut(){
   if(!authClient)return
@@ -154,7 +173,7 @@ function App(){
   const {error}=await authClient.auth.signOut()
   setBusy(false)
   if(error)setError('Sign-out could not be confirmed. Please retry.')
-  else setSession(null)
+  else {setSession(null);setError('')}
  }
  if(!authClient)return <div className="auth-shell"><section className="auth-card"><div className="auth-mark">DPF</div><span className="auth-kicker">SECURE WORKSPACE SETUP</span><h1>Authentication is not configured.</h1><p>Connect the dedicated DPF Supabase project using the public project URL and publishable key in your deployment environment. No lead data is available on this screen.</p><div className="auth-warning"><LockKeyhole size={17}/> Sign-in remains disabled until the environment is configured.</div></section></div>
  if(checking)return <div className="auth-shell"><section className="auth-card"><div className="auth-mark">DPF</div><p>Verifying secure workspace session…</p></section></div>
