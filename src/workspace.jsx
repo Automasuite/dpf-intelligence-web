@@ -2,6 +2,20 @@ import React,{useMemo,useState} from 'react'
 import {createRoot} from 'react-dom/client'
 import {Activity,ArrowDownRight,ArrowRight,Building2,CalendarClock,CheckCircle2,ChevronDown,Command,Filter,Flame,LayoutDashboard,Plus,Search,Settings2,ShieldCheck,Target,Users,Wallet,Workflow,X} from 'lucide-react'
 import './workspace.css'
+import {Upload,FileSpreadsheet,AlertCircle,Check,ShieldAlert} from 'lucide-react'
+import {previewPhoneCsv} from './lib/phone-csv-preview.js'
+import {normalizePhone} from './lib/phone-normalization.js'
+
+function classifyImport(parsed,countryHint){
+ const seen=new Set()
+ const rows=parsed.rows.map(row=>{
+  const result=normalizePhone(row.rawPhone,{countryHint})
+  const duplicateInBatch=result.status==='valid'&&seen.has(result.normalized)
+  if(result.status==='valid')seen.add(result.normalized)
+  return {...row,...result,duplicateInBatch}
+ })
+ return { ...parsed, rows, counts:{valid:rows.filter(r=>r.status==='valid'&&!r.duplicateInBatch).length,duplicates:rows.filter(r=>r.duplicateInBatch).length,review:rows.filter(r=>r.status==='needs_review').length,invalid:rows.filter(r=>r.status==='invalid').length,incomplete:rows.filter(r=>r.status==='incomplete').length} }
+}
 
 const stages=['Signal','Intent','Qualified','Matched','Conversation','Inspection','Transaction']
 const money=n=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(Number(n||0))
@@ -12,6 +26,24 @@ function App(){
  const [stageFilter,setStageFilter]=useState('All stages')
  const [form,setForm]=useState({name:'',phone:'',source:'Manual entry',budget:'',location:'',propertyType:'',timeline:'',notes:''})
  const [notice,setNotice]=useState('')
+ const [importCountry,setImportCountry]=useState('')
+ const [importFileName,setImportFileName]=useState('')
+ const [importRaw,setImportRaw]=useState(null)
+ const [importPreview,setImportPreview]=useState(null)
+ const [importError,setImportError]=useState('')
+ const [importReviewed,setImportReviewed]=useState(false)
+ async function handleImportFile(event){
+  const file=event.target.files?.[0]
+  if(!file)return
+  setImportError('');setImportPreview(null);setImportRaw(null);setImportReviewed(false)
+  try{
+   if(!file.name.toLowerCase().endsWith('.csv'))throw new Error('Please select a .csv file.')
+   const parsed=previewPhoneCsv(await file.text())
+   setImportFileName(file.name);setImportRaw(parsed);setImportPreview(classifyImport(parsed,importCountry))
+  }catch(error){setImportError(error.message||'Unable to read this CSV file.');setImportFileName('')}
+  event.target.value=''
+ }
+ function changeImportCountry(value){setImportCountry(value);if(importRaw){setImportPreview(classifyImport(importRaw,value));setImportReviewed(false)}}
  const visible=useMemo(()=>leads.filter(l=>(l.name+' '+l.phone+' '+l.location+' '+l.propertyType).toLowerCase().includes(search.toLowerCase())&&(stageFilter==='All stages'||l.stage===stageFilter)),[leads,search,stageFilter])
  const count=stage=>leads.filter(l=>l.stage===stage).length
  const update=(key,value)=>setForm(f=>({...f,[key]:value}))
@@ -22,7 +54,7 @@ function App(){
    <a className="ws-brand" href="/"><span className="ws-monogram">DPF</span><span><b>Digital Property Finder</b><small>INTELLIGENCE SYSTEM</small></span></a>
    <div className="side-label">WORKSPACE</div>
    <a className="side-link selected" href="#overview"><LayoutDashboard size={17}/>Overview</a>
-   <a className="side-link" href="#pipeline"><Workflow size={17}/>Lead pipeline <span className="side-count">{leads.length}</span></a>
+   <a className="side-link" href="#pipeline"><Workflow size={17}/>Lead pipeline <span className="side-count">{leads.length}</span></a>\n   <a className="side-link" href="#lead-vault-import"><Upload size={17}/>Import contacts</a>
    <a className="side-link" href="#followups"><CalendarClock size={17}/>Follow-ups</a>
    <a className="side-link" href="#matching"><Building2 size={17}/>Property matching</a>
    <div className="side-label">INTELLIGENCE</div>
@@ -35,6 +67,30 @@ function App(){
    <section id="overview" className="ws-page-head"><div><div className="ws-eyebrow"><Command size={14}/> SIGNAL-TO-DEAL OPERATING SYSTEM</div><h1>Lead intelligence <em>workspace.</em></h1><p>Turn market signals into qualified conversations, relevant matches and real property transactions.</p></div><button className="primary-action" onClick={()=>setShowForm(true)}><Plus size={17}/> Add a lead</button></section>
    <div className="prototype-alert"><Activity size={17}/><span><b>Prototype workspace</b> — lead records currently live only in this browser session. CRM persistence, live agent routing and external outreach are not connected yet.</span></div>
    {notice&&<div className="ws-notice"><CheckCircle2 size={17}/>{notice}<button onClick={()=>setNotice('')}><X size={15}/></button></div>}
+   <section id="lead-vault-import" className="import-panel">
+    <div className="panel-head import-head"><div><div className="ws-eyebrow"><FileSpreadsheet size={14}/> LEAD VAULT · PHONE DATABASE</div><h2>Import contact records</h2><p>Upload a CSV, validate phone numbers and inspect duplicates before any database action.</p></div><div className="import-safety"><ShieldAlert size={15}/> Preview only · No database writes</div></div>
+    <div className="import-controls">
+     <label className="country-context">Country context <select value={importCountry} onChange={e=>changeImportCountry(e.target.value)}><option value="">Do not assume a country</option><option value="NG">Nigeria (+234)</option></select><small>Choose Nigeria only when the uploaded national-format numbers are known to be Nigerian. Numbers with + prefix are parsed internationally.</small></label>
+     <label className="upload-drop"><input type="file" accept=".csv,text/csv" onChange={handleImportFile}/><Upload size={20}/><b>Choose CSV file</b><span>Maximum 5 MB · Up to 10,000 rows · Phone column required</span></label>
+    </div>
+    {importError&&<div className="import-error"><AlertCircle size={16}/>{importError}</div>}
+    {importPreview&&<div className="import-results">
+     <div className="import-file-line"><b>{importFileName}</b><span>{importPreview.totalRows.toLocaleString()} source rows</span></div>
+     <div className="import-counts">
+      <div><strong>{importPreview.counts.valid}</strong><span>Valid unique</span></div>
+      <div><strong>{importPreview.counts.duplicates}</strong><span>Duplicates in file</span></div>
+      <div><strong>{importPreview.counts.review}</strong><span>Needs review</span></div>
+      <div><strong>{importPreview.counts.invalid}</strong><span>Invalid</span></div>
+      <div><strong>{importPreview.counts.incomplete}</strong><span>Incomplete</span></div>
+     </div>
+     <div className="import-table-wrap"><table className="import-table"><thead><tr><th>Row</th><th>Phone as supplied</th><th>Normalized number</th><th>Validation</th><th>Source / name</th></tr></thead><tbody>{importPreview.rows.slice(0,12).map(row=><tr key={row.sourceRowKey}><td>{row.rowNumber}</td><td>{row.rawPhone||'—'}</td><td>{row.normalized||'—'}</td><td><span className={'import-status status-'+(row.duplicateInBatch?'duplicate':row.status)}>{row.duplicateInBatch?'Duplicate in file':row.status.replace('_',' ')}</span>{row.reason&&<small>{row.reason.replaceAll('_',' ')}</small>}</td><td>{[row.suppliedName,row.sourceReference].filter(Boolean).join(' · ')||'—'}</td></tr>)}</tbody></table></div>
+     {importPreview.rows.length>12&&<p className="import-more">Showing first 12 rows of {importPreview.rows.length.toLocaleString()}. All rows are included in the preview counts.</p>}
+     {importPreview.ignoredEmailColumn&&<p className="import-note">An email column was detected but intentionally excluded from this phone-only import stage.</p>}
+     <div className="import-review-foot"><span><AlertCircle size={15}/> Existing database duplicates cannot be checked until the DPF database is connected.</span><button className="secondary-action" onClick={()=>setImportReviewed(true)}><Check size={15}/> Mark preview reviewed</button></div>
+     {importReviewed&&<div className="import-reviewed"><Check size={15}/> Preview reviewed in this browser session. No records were saved, merged, exported or contacted.</div>}
+    </div>}
+    {!importPreview&&!importError&&<div className="import-empty">Your import preview will appear here. Original phone values and source-row positions will be preserved for review.</div>}
+   </section>
    <section className="metric-grid">
     <article className="metric-card"><div className="metric-top"><span>Total leads</span><Users size={17}/></div><strong>{leads.length}</strong><small>{leads.length?'Captured in this session':'Awaiting first verified lead'}</small></article>
     <article className="metric-card"><div className="metric-top"><span>High-intent leads</span><Flame size={17}/></div><strong>{leads.filter(l=>['Qualified','Matched','Conversation','Inspection'].includes(l.stage)).length}</strong><small>Qualified through human review</small></article>
