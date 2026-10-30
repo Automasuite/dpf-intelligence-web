@@ -79,6 +79,7 @@ export default async function handler(req, res) {
     if (normalized.status === 'valid') seen.add(normalized.normalized)
     const rowStatus = duplicateInBatch ? 'duplicate_in_batch'
       : normalized.status === 'valid' ? 'valid'
+      : normalized.status === 'invalid' ? 'invalid'
       : 'needs_review'
     const fingerprint = createHash('sha256')
       .update(JSON.stringify([
