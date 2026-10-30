@@ -20,7 +20,8 @@ function classifyImport(parsed,countryHint){
 
 const stages=['Signal','Intent','Qualified','Matched','Conversation','Inspection','Transaction']
 const money=n=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',maximumFractionDigits:0}).format(Number(n||0))
-function WorkspaceApp({user,session,onSignOut}){
+function WorkspaceApp({user,session,onSignOut,role}){
+ const canManageFollowups=['owner','admin'].includes(role)
  const [leads,setLeads]=useState([])
  const [loadingLeads,setLoadingLeads]=useState(true)
  const [savingLead,setSavingLead]=useState(false)
@@ -126,10 +127,10 @@ function WorkspaceApp({user,session,onSignOut}){
    </section>
    <section id="pipeline" className="pipeline-panel">
     <div className="panel-head"><div><div className="ws-eyebrow">LIVE WORKFLOW</div><h2>Signal-to-deal pipeline</h2><p>Move each lead forward only when there is evidence for the next stage.</p></div><div className="pipeline-tools"><label className="ws-search"><Search size={16}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search leads"/></label><select value={stageFilter} onChange={e=>setStageFilter(e.target.value)}><option>All stages</option>{stages.map(s=><option key={s}>{s}</option>)}</select><button className="secondary-action" onClick={()=>setShowForm(true)}><Plus size={15}/> Add</button></div></div>
-    <div className="pipeline-columns">{stages.map((stage,i)=><div className="pipeline-column" key={stage}><div className="column-title"><span className={'stage-dot dot-'+i}/><b>{stage}</b><span>{count(stage)}</span></div>{visible.filter(l=>l.stage===stage).map(l=><article className="lead-card" key={l.id}><div className="lead-card-top"><span className="lead-source">{l.source}</span><button aria-label="Remove lead" onClick={()=>setLeads(prev=>prev.filter(x=>x.id!==l.id))}><X size={13}/></button></div><b className="lead-name">{l.name}</b><span className="lead-detail">{l.phone}</span><span className="lead-detail">{[l.location,l.propertyType].filter(Boolean).join(' · ')||'Buyer requirements not yet captured'}</span>{l.budget&&<strong className="lead-budget">{money(l.budget)}</strong>}<div className="lead-card-foot"><span><span className="score-dot"/> {l.score} signal score</span><span>{l.created}</span></div><label className="move-label">Move stage <ChevronDown size={12}/><select value={l.stage} disabled aria-label="Stage updates not yet enabled">{stages.map(s=><option key={s}>{s}</option>)}</select></label><button className="task-add-button" onClick={()=>openFollowupForm(l.id)}><CalendarClock size={13}/> Schedule follow-up</button></article>)}{visible.filter(l=>l.stage===stage).length===0&&<div className="column-empty">{stage==='Signal'?'Capture a lead or record a market signal.':'Leads move here when the next step is evidenced.'}</div>}</div>)}</div>
+    <div className="pipeline-columns">{stages.map((stage,i)=><div className="pipeline-column" key={stage}><div className="column-title"><span className={'stage-dot dot-'+i}/><b>{stage}</b><span>{count(stage)}</span></div>{visible.filter(l=>l.stage===stage).map(l=><article className="lead-card" key={l.id}><div className="lead-card-top"><span className="lead-source">{l.source}</span><button aria-label="Remove lead" onClick={()=>setLeads(prev=>prev.filter(x=>x.id!==l.id))}><X size={13}/></button></div><b className="lead-name">{l.name}</b><span className="lead-detail">{l.phone}</span><span className="lead-detail">{[l.location,l.propertyType].filter(Boolean).join(' · ')||'Buyer requirements not yet captured'}</span>{l.budget&&<strong className="lead-budget">{money(l.budget)}</strong>}<div className="lead-card-foot"><span><span className="score-dot"/> {l.score} signal score</span><span>{l.created}</span></div><label className="move-label">Move stage <ChevronDown size={12}/><select value={l.stage} disabled aria-label="Stage updates not yet enabled">{stages.map(s=><option key={s}>{s}</option>)}</select></label>{canManageFollowups&&<button className="task-add-button" onClick={()=>openFollowupForm(l.id)}><CalendarClock size={13}/> Schedule follow-up</button>}</article>)}{visible.filter(l=>l.stage===stage).length===0&&<div className="column-empty">{stage==='Signal'?'Capture a lead or record a market signal.':'Leads move here when the next step is evidenced.'}</div>}</div>)}</div>
    </section>
    <section className="bottom-grid">
-    <article id="followups" className="utility-panel followup-queue"><div className="utility-icon"><CalendarClock size={18}/></div><div className="followup-content"><h3>Follow-up queue</h3><p>Human-managed reminders linked to saved leads. No messages are sent automatically.</p><div className="followup-summary"><span>{followups.filter(t=>['pending','in_progress','snoozed'].includes(t.status)&&new Date(t.due_at)<new Date()).length} overdue</span><span>{followups.filter(t=>['pending','in_progress','snoozed'].includes(t.status)&&new Date(t.due_at)>=new Date()&&new Date(t.due_at)<=new Date(Date.now()+7*86400000)).length} due in 7 days</span></div>{loadingFollowups?<p>Loading follow-ups…</p>:followups.length===0?<p>No follow-up tasks yet. Schedule one from a lead card.</p>:<div className="followup-list">{followups.slice(0,12).map(task=>{const lead=leads.find(item=>item.id===task.lead_id);const overdue=new Date(task.due_at)<new Date()&&['pending','in_progress','snoozed'].includes(task.status);return <div className="followup-item" key={task.id}><div><b>{task.title}</b><small>{lead?.name||'Saved lead'} · {new Date(task.due_at).toLocaleString('en-NG')} · {task.priority}</small><span className={overdue?'followup-overdue':'followup-state'}>{overdue?'Overdue':task.status.replace('_',' ')}</span></div>{['pending','in_progress','snoozed'].includes(task.status)&&<div className="followup-actions"><button onClick={()=>changeFollowupStatus(task,'completed')}>Complete</button><button onClick={()=>changeFollowupStatus(task,'cancelled')}>Cancel</button></div>}</div>})}</div>}<button className="task-add-button" disabled={!leads.length} onClick={()=>openFollowupForm(leads[0].id)}><Plus size={13}/> New follow-up</button></div></article>
+    <article id="followups" className="utility-panel followup-queue"><div className="utility-icon"><CalendarClock size={18}/></div><div className="followup-content"><h3>Follow-up queue</h3><p>Human-managed reminders linked to saved leads. No messages are sent automatically.</p><div className="followup-summary"><span>{followups.filter(t=>['pending','in_progress','snoozed'].includes(t.status)&&new Date(t.due_at)<new Date()).length} overdue</span><span>{followups.filter(t=>['pending','in_progress','snoozed'].includes(t.status)&&new Date(t.due_at)>=new Date()&&new Date(t.due_at)<=new Date(Date.now()+7*86400000)).length} due in 7 days</span></div>{loadingFollowups?<p>Loading follow-ups…</p>:followups.length===0?<p>No follow-up tasks yet. Schedule one from a lead card.</p>:<div className="followup-list">{followups.slice(0,12).map(task=>{const lead=leads.find(item=>item.id===task.lead_id);const overdue=new Date(task.due_at)<new Date()&&['pending','in_progress','snoozed'].includes(task.status);return <div className="followup-item" key={task.id}><div><b>{task.title}</b><small>{lead?.name||'Saved lead'} · {new Date(task.due_at).toLocaleString('en-NG')} · {task.priority}</small><span className={overdue?'followup-overdue':'followup-state'}>{overdue?'Overdue':task.status.replace('_',' ')}</span></div>{['pending','in_progress','snoozed'].includes(task.status)&&<div className="followup-actions"><button onClick={()=>changeFollowupStatus(task,'completed')}>Complete</button><button onClick={()=>changeFollowupStatus(task,'cancelled')}>Cancel</button></div>}</div>})}</div>}{canManageFollowups&&<button className="task-add-button" disabled={!leads.length} onClick={()=>openFollowupForm(leads[0].id)}><Plus size={13}/> New follow-up</button>}</div></article>
     <article id="matching" className="utility-panel"><div className="utility-icon"><Building2 size={18}/></div><div><h3>Property match engine</h3><p>Match buyer budget, location, purpose, timeline and payment preference against verified inventory. No match is presented as verified until its source is checked.</p><span className="status-chip">Inventory connection pending</span></div></article>
    </section>
    <section id="signals" className="principle-strip"><div className="principle-symbol"><ArrowDownRight size={22}/></div><div><b>Diagnose before you prescribe.</b><p>Discover the buyer's signal, understand intent and risk, then recommend only when there is a genuine fit.</p></div><div className="principle-flow">SIGNAL <span>→</span> INTENT <span>→</span> QUALIFY <span>→</span> MATCH <span>→</span> GUIDE</div></section>
@@ -146,13 +147,14 @@ const authClient=supabaseUrl&&supabaseAnonKey?createClient(supabaseUrl,supabaseA
 
 function App(){
  const [session,setSession]=useState(null)
+ const [workspaceRole,setWorkspaceRole]=useState('')
  const [checking,setChecking]=useState(Boolean(authClient))
  const [email,setEmail]=useState('')
  const [password,setPassword]=useState('')
  const [busy,setBusy]=useState(false)
  const [error,setError]=useState('')
  async function verifyWorkspaceSession(candidate){
-  if(!candidate){setSession(null);setChecking(false);return}
+  if(!candidate){setSession(null);setWorkspaceRole('');setChecking(false);return}
   setChecking(true)
   try{
    const response=await fetch('/api/lead-vault/session',{headers:{Authorization:`Bearer ${candidate.access_token}`},cache:'no-store'})
@@ -165,7 +167,7 @@ function App(){
    if(!access?.ok||!Array.isArray(access.workspaces)||access.workspaces.length===0){
     setSession(null);setError('Your account does not have active DPF workspace access. Contact the workspace owner.');return
    }
-   setError('');setSession(candidate)
+   setError('');setWorkspaceRole(access.workspaces[0]?.role||'');setSession(candidate)
   }catch{
    setSession(null);setError('Workspace access could not be verified. Check your connection and retry.')
   }finally{setChecking(false)}
@@ -198,12 +200,12 @@ function App(){
   const {error}=await authClient.auth.signOut()
   setBusy(false)
   if(error)setError('Sign-out could not be confirmed. Please retry.')
-  else {setSession(null);setError('')}
+  else {setSession(null);setWorkspaceRole('');setError('')}
  }
  if(!authClient)return <div className="auth-shell"><section className="auth-card"><div className="auth-mark">DPF</div><span className="auth-kicker">SECURE WORKSPACE SETUP</span><h1>Authentication is not configured.</h1><p>Connect the dedicated DPF Supabase project using the public project URL and publishable key in your deployment environment. No lead data is available on this screen.</p><div className="auth-warning"><LockKeyhole size={17}/> Sign-in remains disabled until the environment is configured.</div></section></div>
  if(checking)return <div className="auth-shell"><section className="auth-card"><div className="auth-mark">DPF</div><p>Verifying secure workspace session…</p></section></div>
  if(!session)return <div className="auth-shell"><section className="auth-card"><div className="auth-mark">DPF</div><span className="auth-kicker">DIGITAL PROPERTY FINDER · PRIVATE ACCESS</span><h1>Welcome to your intelligence workspace.</h1><p>Sign in with an administrator-provisioned account. Public self-registration is not available here.</p><form className="auth-form" onSubmit={signIn}><label>Email address<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@company.com"/></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password"/></label>{error&&<div className="auth-error">{error}</div>}<button className="primary-action" type="submit" disabled={busy}>{busy?'Verifying…':<><LogIn size={16}/> Sign in securely</>}</button></form><div className="auth-foot"><LockKeyhole size={14}/> Protected sign-in · No public registration</div></section></div>
- return <WorkspaceApp user={session.user} session={session} onSignOut={signOut}/>
+ return <WorkspaceApp user={session.user} session={session} role={workspaceRole} onSignOut={signOut}/>
 }
 
 createRoot(document.getElementById('root')).render(<App/>)
