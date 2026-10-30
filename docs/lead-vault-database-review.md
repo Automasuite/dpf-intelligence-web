@@ -47,3 +47,15 @@ The connected Supabase account currently lists four projects. None is clearly id
 - Test RLS with two users, anon, authenticated and service-role access.
 - Test duplicate races, repeated commit requests, invalid rows, consent/suppression precedence and rollback.
 - Verify backups and restoration before any production data import.
+
+## Workspace import preview
+
+The DPF workspace now includes a client-side CSV preview at `#lead-vault-import`.
+
+- Accepts CSV only, with a 5 MB client-side limit and parser limits of 10,000 rows and 50 columns.
+- Requires a recognized phone column; optional supplied name and source/reference values are preserved for preview.
+- Email columns are intentionally ignored in this first phone-only phase.
+- Country context is explicit; Nigeria is never assumed unless selected by the operator.
+- Shows normalized phone, validation result, in-file duplicates, and row-level reason.
+- The "Mark preview reviewed" action only acknowledges the preview in browser memory. It does not approve a database import or write records.
+- Existing-database duplicate checks, durable batch records, canonical contact creation, and import commit remain unavailable until the dedicated database and trusted server routes exist.
