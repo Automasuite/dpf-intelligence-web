@@ -27,6 +27,7 @@ declare
   v_invalid integer;
   v_duplicates integer;
   v_details jsonb;
+  v_request_fingerprint text;
 begin
   if p_owner_id is null or p_actor_id is null
      or p_request_id is null or pg_catalog.length(p_request_id) < 8 or pg_catalog.length(p_request_id) > 128
@@ -47,10 +48,14 @@ begin
     raise exception 'Rows must be a JSON array';
   end if;
 
-  v_total := pg_catalog.jsonb_array_length(p_rows);
-  if v_total < 1 or v_total > 10000 then
-    raise exception 'Batch row count is outside the allowed range';
-  end if;
+  v_request_fingerprint := pg_catalog.md5(
+    pg_catalog.jsonb_build_object(
+      'batch_name',p_batch_name,
+      'source_label',p_source_label,
+      'country_context',p_country_context,
+      'rows',p_rows
+    )::text
+  );
 
   select m.role into v_role
   from public.dpf_workspace_members m
@@ -70,9 +75,18 @@ begin
   limit 1;
 
   if found then
+    if v_existing.details->>'request_fingerprint' is distinct from v_request_fingerprint then
+      raise exception 'Idempotency key reused with a different request payload';
+    end if;
     return pg_catalog.jsonb_build_object(
-      'ok',true,'already_created',true,'batch_id',v_existing.entity_id,'counts',v_existing.details
+      'ok',true,'already_created',true,'batch_id',v_existing.entity_id,
+      'counts',v_existing.details - 'request_fingerprint'
     );
+  end if;
+
+  v_total := pg_catalog.jsonb_array_length(p_rows);
+  if v_total < 1 or v_total > 10000 then
+    raise exception 'Batch row count is outside the allowed range';
   end if;
 
   v_batch_id := pg_catalog.gen_random_uuid();
@@ -128,7 +142,8 @@ begin
     'valid_rows',v_valid,
     'review_rows',v_review,
     'invalid_rows',v_invalid,
-    'duplicate_rows',v_duplicates
+    'duplicate_rows',v_duplicates,
+    'request_fingerprint',v_request_fingerprint
   );
 
   insert into public.dpf_lead_vault_audit_events(
@@ -137,7 +152,7 @@ begin
     p_owner_id,p_actor_id,'human','batch.preview','import_batch',v_batch_id,v_batch_id,p_request_id,v_details
   );
 
-  return pg_catalog.jsonb_build_object('ok',true,'already_created',false,'batch_id',v_batch_id,'counts',v_details);
+  return pg_catalog.jsonb_build_object('ok',true,'already_created',false,'batch_id',v_batch_id,'counts',v_details - 'request_fingerprint');
 end;
 $$;
 
