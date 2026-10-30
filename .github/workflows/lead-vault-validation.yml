@@ -68,6 +68,10 @@ jobs:
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202610300003_dpf_import_approval_commit.sql
       - name: Verify approval, immutability and idempotent commit
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-import-commit-assertions.sql
+      - name: Apply durable preview batch RPC to disposable PostgreSQL
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202610300004_dpf_import_preview_batch.sql
+      - name: Verify durable preview creation and idempotency
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-preview-batch-assertions.sql
 
   production-build:
     name: Vite production build
