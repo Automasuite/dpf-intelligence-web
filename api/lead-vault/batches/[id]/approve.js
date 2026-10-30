@@ -14,6 +14,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'method_not_allowed' })
   }
 
+  if (process.env.LEAD_VAULT_WRITES_ENABLED !== 'true') {
+    return res.status(503).json({ ok: false, error: 'lead_vault_writes_disabled' })
+  }
+
   const batchId = req.query?.id
   if (typeof batchId !== 'string' || !UUID.test(batchId)) {
     return res.status(400).json({ ok: false, error: 'invalid_batch_id' })
