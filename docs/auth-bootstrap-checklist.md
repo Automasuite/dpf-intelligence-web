@@ -43,6 +43,16 @@ Configure these server-side environment variables in the approved Vercel project
 
 These values are not privileged credentials. No service-role key is used by this session-verification endpoint. Future database-write routes must use a separate server-only service-role secret, strict owner scoping, authorization and audit controls.
 
+## Workspace membership and roles
+
+A second review-only migration, 202610300002_dpf_workspace_membership.sql, adds workspace membership with four roles: owner, admin, operator and reviewer. Contact read policies now require an active membership for the contact's workspace. Suspended or revoked members lose read access. Authenticated users cannot create or modify membership rows directly.
+
+The server auth helper verifies the Supabase token and then reads active membership rows using that user's JWT. The session endpoint returns workspace owner IDs and roles, not contact data. The browser now calls this endpoint before rendering the workspace. Missing migration, missing membership or an unverifiable session fails closed.
+
+No owner membership is seeded yet because the first administrator account has not been created. Once the first account is confirmed and provisioned, a one-time owner membership row must be inserted through an approved administrative process. Staff invitations and membership changes must be performed through a future audited server-side admin route; that route is not implemented yet.
+
+Role names are established, but action-specific permissions for import approval, commit, rollback, export and membership administration must be implemented in the server APIs before those operations are enabled. A role label alone does not authorize a browser-side write.
+
 ## Required tests before opening the workspace
 
 - Missing environment: setup screen is shown; no workspace content renders.
