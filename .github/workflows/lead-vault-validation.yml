@@ -73,6 +73,41 @@ jobs:
       - name: Verify durable preview creation and idempotency
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-preview-batch-assertions.sql
 
+
+  transactional-lead-test:
+    name: PostgreSQL 17 transactional lead audit test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Bootstrap minimal Supabase auth roles
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-bootstrap.sql
+      - name: Apply the DPF lead foundation
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202610290001_lead_intelligence.sql
+      - name: Apply transactional lead mutation functions
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261030160000_dpf_transactional_lead_mutations.sql
+      - name: Verify transactional audit, rollback and function grants
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-transactional-lead-assertions.sql
+
   production-build:
     name: Vite production build
     runs-on: ubuntu-latest
