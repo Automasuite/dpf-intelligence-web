@@ -1,5 +1,5 @@
 -- DPF Lead Vault: additive contact-import foundation.
--- REVIEW ONLY until a dedicated DPF Supabase project is identified and approved.
+-- REVIEW ONLY. Dedicated DPF Supabase project exists; this migration still requires schema/security review and explicit deployment approval.
 -- No existing DPF lead tables are altered.
 --
 -- Design rules:
@@ -28,7 +28,8 @@ create table if not exists public.dpf_contact_records (
   constraint dpf_contact_phone_e164_format
     check (phone_e164 is null or phone_e164 ~ '^\+[1-9][0-9]{7,14}$'),
   constraint dpf_contact_valid_phone_required
-    check (phone_validation_status <> 'valid' or phone_e164 is not null)
+    check (phone_validation_status <> 'valid' or phone_e164 is not null),
+  constraint dpf_contact_id_owner_unique unique (id, owner_id)
 );
 
 create unique index if not exists dpf_contact_owner_phone_unique
@@ -58,7 +59,8 @@ create table if not exists public.dpf_contact_import_batches (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint dpf_import_approval_pair
-    check ((approved_by is null and approved_at is null) or (approved_by is not null and approved_at is not null))
+    check ((approved_by is null and approved_at is null) or (approved_by is not null and approved_at is not null)),
+  constraint dpf_import_batch_id_owner_unique unique (id, owner_id)
 );
 
 create index if not exists dpf_import_batches_owner_created_idx
@@ -85,8 +87,23 @@ create table if not exists public.dpf_contact_import_rows (
   constraint dpf_import_row_valid_phone_format
     check (normalized_phone_e164 is null or normalized_phone_e164 ~ '^\+[1-9][0-9]{7,14}$'),
   constraint dpf_import_row_valid_status_requires_number
-    check (phone_validation_status <> 'valid' or normalized_phone_e164 is not null)
+    check (phone_validation_status <> 'valid' or normalized_phone_e164 is not null),
+  constraint dpf_import_row_id_owner_unique unique (id, owner_id)
 );
+
+-- Enforce tenant ownership across every parent/child relationship.
+-- A valid UUID from another owner's row must never be linkable by mistake.
+alter table public.dpf_contact_import_rows
+  add constraint dpf_import_rows_batch_owner_fk
+  foreign key (batch_id, owner_id)
+  references public.dpf_contact_import_batches(id, owner_id)
+  on delete cascade;
+
+alter table public.dpf_contact_import_rows
+  add constraint dpf_import_rows_contact_owner_fk
+  foreign key (canonical_contact_id, owner_id)
+  references public.dpf_contact_records(id, owner_id)
+  on delete set null (canonical_contact_id);
 
 create index if not exists dpf_import_rows_owner_batch_idx
   on public.dpf_contact_import_rows(owner_id, batch_id, row_number);
@@ -103,9 +120,29 @@ create table if not exists public.dpf_contact_sources (
   source_label text not null,
   source_reference text,
   observed_at timestamptz not null default now(),
-  created_at timestamptz not null default now(),
-  constraint dpf_contact_source_dedupe unique(contact_id, import_row_id, source_label)
+  created_at timestamptz not null default now()
 );
+
+alter table public.dpf_contact_sources
+  add constraint dpf_contact_sources_contact_owner_fk
+  foreign key (contact_id, owner_id)
+  references public.dpf_contact_records(id, owner_id)
+  on delete cascade;
+
+alter table public.dpf_contact_sources
+  add constraint dpf_contact_sources_row_owner_fk
+  foreign key (import_row_id, owner_id)
+  references public.dpf_contact_import_rows(id, owner_id)
+  on delete set null (import_row_id);
+
+-- NULL import_row_id values need their own idempotency rule because ordinary
+-- UNIQUE constraints treat NULL values as distinct.
+create unique index if not exists dpf_contact_sources_import_row_unique
+  on public.dpf_contact_sources(import_row_id)
+  where import_row_id is not null;
+create unique index if not exists dpf_contact_sources_manual_unique
+  on public.dpf_contact_sources(contact_id, source_label)
+  where import_row_id is null;
 
 create index if not exists dpf_contact_sources_owner_contact_idx
   on public.dpf_contact_sources(owner_id, contact_id, observed_at desc);
@@ -129,6 +166,12 @@ create table if not exists public.dpf_contact_permissions (
     check (permission_status <> 'granted' or (evidence_type is not null and captured_at is not null))
 );
 
+alter table public.dpf_contact_permissions
+  add constraint dpf_contact_permissions_contact_owner_fk
+  foreign key (contact_id, owner_id)
+  references public.dpf_contact_records(id, owner_id)
+  on delete cascade;
+
 create table if not exists public.dpf_contact_suppressions (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
@@ -143,6 +186,12 @@ create table if not exists public.dpf_contact_suppressions (
   constraint dpf_suppression_lift_pair
     check ((lifted_at is null and lifted_by is null) or (lifted_at is not null and lifted_by is not null))
 );
+
+alter table public.dpf_contact_suppressions
+  add constraint dpf_contact_suppressions_contact_owner_fk
+  foreign key (contact_id, owner_id)
+  references public.dpf_contact_records(id, owner_id)
+  on delete cascade;
 
 create index if not exists dpf_suppressions_active_idx
   on public.dpf_contact_suppressions(owner_id, contact_id, channel)
@@ -161,6 +210,12 @@ create table if not exists public.dpf_lead_vault_audit_events (
   details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.dpf_lead_vault_audit_events
+  add constraint dpf_audit_batch_owner_fk
+  foreign key (batch_id, owner_id)
+  references public.dpf_contact_import_batches(id, owner_id)
+  on delete set null (batch_id);
 
 create index if not exists dpf_lead_vault_audit_owner_created_idx
   on public.dpf_lead_vault_audit_events(owner_id, created_at desc);
