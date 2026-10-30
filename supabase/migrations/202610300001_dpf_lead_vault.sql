@@ -234,6 +234,38 @@ drop policy if exists dpf_lead_vault_audit_owner_read on public.dpf_lead_vault_a
 create policy dpf_lead_vault_audit_owner_read on public.dpf_lead_vault_audit_events
 for select to authenticated using ((select auth.uid()) = owner_id);
 
+
+-- Explicit table privileges complement RLS; do not rely on project defaults.
+revoke all on table
+  public.dpf_contact_records,
+  public.dpf_contact_import_batches,
+  public.dpf_contact_import_rows,
+  public.dpf_contact_sources,
+  public.dpf_contact_permissions,
+  public.dpf_contact_suppressions,
+  public.dpf_lead_vault_audit_events
+from public, anon, authenticated;
+
+grant select on table
+  public.dpf_contact_records,
+  public.dpf_contact_import_batches,
+  public.dpf_contact_import_rows,
+  public.dpf_contact_sources,
+  public.dpf_contact_permissions,
+  public.dpf_contact_suppressions,
+  public.dpf_lead_vault_audit_events
+to authenticated;
+
+grant all on table
+  public.dpf_contact_records,
+  public.dpf_contact_import_batches,
+  public.dpf_contact_import_rows,
+  public.dpf_contact_sources,
+  public.dpf_contact_permissions,
+  public.dpf_contact_suppressions,
+  public.dpf_lead_vault_audit_events
+to service_role;
+
 -- Application invariants that must be enforced in trusted server code:
 -- 1. A contact is eligible for a channel only when permission is currently granted
 --    and no active channel-specific or 'all' suppression exists.
