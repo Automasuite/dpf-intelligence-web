@@ -53,6 +53,15 @@ No owner membership is seeded yet because the first administrator account has no
 
 Role names are established, but action-specific permissions for import approval, commit, rollback, export and membership administration must be implemented in the server APIs before those operations are enabled. A role label alone does not authorize a browser-side write.
 
+## Server-only write configuration
+
+The preview, approval and commit API routes use a server-only privileged Supabase client. The following environment values are required only after the API is reviewed and deployed:
+
+- SUPABASE_SERVICE_ROLE_KEY — privileged server credential; never expose in browser code, VITE_ variables, client responses, logs or screenshots.
+- LEAD_VAULT_WRITES_ENABLED — must remain unset or false until all activation blockers in the API security contract are cleared. Set to true only after explicit operational approval.
+
+The global write kill switch currently blocks all durable preview, approval and commit operations by default. A configured service-role key alone must not activate writes.
+
 ## Required tests before opening the workspace
 
 - Missing environment: setup screen is shown; no workspace content renders.
