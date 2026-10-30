@@ -72,3 +72,24 @@ The final route names may change during implementation, but these invariants mus
 ## Current exclusions
 
 No bulk messaging, scraping, WhatsApp automation, CRM sync, lead scoring from phone numbers, or agent-initiated outreach is part of this first database milestone. Consent status is tracked separately and defaults to unknown.
+
+
+## Workspace role permission matrix
+
+The membership migration and server permission helper establish this least-privilege baseline:
+
+| Action | Owner | Admin | Operator | Reviewer |
+|---|---:|---:|---:|---:|
+| Read contacts and batches | Yes | Yes | Yes | Yes |
+| Preview a batch | Yes | Yes | Yes | No |
+| Approve a batch | Yes | Yes | No | Yes |
+| Commit an approved batch | Yes | Yes | No | No |
+| Roll back a batch | Yes | Yes | No | No |
+| Manage channel permissions | Yes | Yes | No | No |
+| Create a suppression | Yes | Yes | Yes | No |
+| Manage workspace members | Yes | Yes | No | No |
+| Export contacts | Yes | Yes | No | No |
+
+Unknown roles and actions are denied. This is a server-side policy baseline, not a claim that every corresponding endpoint is already implemented. Every future route must call the permission guard before privileged work and must still perform owner-scoped queries and audit logging. Reviewers can approve but cannot commit; an authorized owner or admin performs the commit as a separate action. This separates review from execution.
+
+Workspace membership is owner-scoped. The canonical owner_id on contact records remains the workspace owner's user ID; member user IDs must never be substituted for owner_id. Membership changes require a trusted, audited server operation and cannot be performed directly by authenticated browser clients.
