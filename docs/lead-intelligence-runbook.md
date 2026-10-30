@@ -5,7 +5,8 @@
 - Public property catalogue and landing page: `src/main.jsx`.
 - Private workspace: `workspace.html`, `src/workspace.jsx`, `src/workspace.css`.
 - Authentication/session endpoint: `api/lead-vault/session.js`.
-- Owner-scoped lead collection API (GET/POST): `api/lead-vault/leads/index.js`.
+- Owner-scoped lead collection API (GET/POST/PATCH): `api/lead-vault/leads/index.js`.
+- Transactional lead mutation functions: `dpf_create_lead_with_event` and `dpf_update_lead_with_event` in `supabase/migrations/20261030160000_dpf_transactional_lead_mutations.sql`.
 - Server-side Supabase clients: `api/_lib/auth.js`, `api/_lib/admin-client.js`.
 - Runtime configuration-presence endpoint: `GET /api/health`.
 
@@ -21,7 +22,7 @@
 
 ## Current limitations and verified code findings
 
-1. The workspace prototype keeps manually entered leads in React state only; refresh clears them. Database CRUD is not wired into the UI.
+1. The workspace now loads and creates leads through the authenticated API. Stage changes remain disabled in the UI until the transactional update endpoint is integrated and the deployed runtime is verified.
 2. `GET /api/lead-vault/session` validates the bearer token with Supabase Auth and requires at least one active workspace membership. The initial owner membership now exists; end-to-end sign-in still needs a deployed runtime and configured environment.
 3. Frontend and server-side Supabase environment variables have not yet been verified in the correct deployment.
 4. `api/lead-vault/batches/preview.js` calls the privileged RPC `dpf_create_contact_import_batch`. That RPC and the legacy import tables are absent from the live database. The route also fails closed unless `LEAD_VAULT_WRITES_ENABLED=true`.
@@ -39,7 +40,7 @@
 4. Pending: identify the exact Vercel project linked to this repository and verify its production/preview branch configuration. Do not guess based on project name.
 5. Pending: configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` only in the verified DPF deployment. Configure `SUPABASE_SERVICE_ROLE_KEY` only if a reviewed server-side route needs it; keep it server-only.
 6. Pending: verify deployed `GET /api/health`, administrator sign-in, and `GET /api/lead-vault/session` using a real session. Do not ask the user to share passwords, access tokens, or secret keys.
-7. In progress: implement transactional audited lead updates/archive and follow-up task APIs; execute the route and permission test suite, run the Vite production build, and verify the deployed runtime. Derive actor and owner IDs from verified session membership, not caller-supplied identity. Add append-only human-action audit events.
+7. In progress: transactional audited lead create/update/archive functions are applied to the dedicated DPF database. `POST` now uses the transactional create RPC; `PATCH ?id=<uuid>` uses the transactional update RPC. Owner ID is derived from verified membership, and RPC execution is restricted to `service_role`; `anon` and `authenticated` have no execute grant. The live function grants and security-definer status were queried and verified. The SQL functions have not yet passed the newly added dedicated CI transaction/rollback test. Follow-up task APIs and UI integration remain pending. Verify route tests, production build, and deployed runtime before enabling UI mutations.
 8. Pending: reconcile the import pipeline with the current foundation; add missing schema only through a reviewed additive migration, tests, idempotency, row limits, duplicate handling, and approval workflow. Keep imports disabled until preview and commit tests pass.
 9. Pending: add a server-side agent-router adapter. Keep provider API keys in server-side environment variables only; never use a `VITE_*` prefix for secrets.
 10. Pending: first allow read-only lead discovery and source citation. Deduplicate candidates and require a human to approve imported records.
