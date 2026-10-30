@@ -45,7 +45,7 @@ export default async function handler(req,res){
   res.setHeader('X-Content-Type-Options','nosniff')
   res.setHeader('Referrer-Policy','no-referrer')
   if(!['GET','POST'].includes(req.method)){res.setHeader('Allow','GET, POST');return fail(res,405,'method_not_allowed')}
-  const access=await requireWorkspacePermission(req,'leads.manage')
+  const access=await requireWorkspacePermission(req,req.method==='GET'?'contacts.read':'leads.manage')
   if(access.error)return fail(res,access.status,access.error)
   const membership=access.memberships[0]
   const supabase=getPrivilegedSupabaseClient()
