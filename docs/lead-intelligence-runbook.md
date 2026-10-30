@@ -79,3 +79,14 @@ Only set variables for services that are actually provisioned and tested. The he
 ## Health check
 
 Open `/api/health`. Expected response is HTTP 200 with `ok: true`. A status of `operational_with_pending_integrations` means the runtime responded but some configured checks are false. This endpoint is not a full dependency readiness test and must not be treated as proof that authentication or the database is reachable.
+
+
+## Transactional follow-up task implementation — 2026-10-30
+
+- Applied live migration `dpf_transactional_followup_tasks` to the dedicated DPF Supabase project.
+- Added `dpf_create_follow_up_task_with_event` and `dpf_update_follow_up_task_with_event`. Both use `SECURITY INVOKER`, an empty search path, explicit schema-qualified relations, and service-role-only execution.
+- Follow-up task creation and update/completion/cancellation are atomic with the corresponding `followup_scheduled` event on the associated lead timeline. Completion sets `completed_at`; reopening clears it.
+- Cross-owner lead/task association is rejected. API owner scope is derived from the verified workspace membership, never request payload.
+- Added `GET/POST/PATCH /api/lead-vault/followups`. Reads require `contacts.read`; writes require existing `leads.manage` (owner/admin). GET supports all, overdue and next-seven-day upcoming views, optional lead/status filters, and a capped result size.
+- Added route authentication tests and PostgreSQL rollback, grant and cross-owner assertions. A live transaction test passed; all fixtures were rolled back. No business lead or follow-up records were persisted.
+- The follow-up UI is not yet wired to these endpoints. CI run #116 is the active validation of the API/test/migration branch; report success only after its jobs complete.
