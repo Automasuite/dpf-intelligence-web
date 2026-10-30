@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { previewPhoneCsv } from '../src/lib/phone-csv-preview.js'
+import { buildReconciliationPlan } from '../src/lib/reconciliation-plan.js'
 
 test('parses a simple phone CSV and retains supplied names and source reference', () => {
   const result = previewPhoneCsv('Phone,Full Name,Source\n08031234567,Ada,Referral')
@@ -49,4 +50,65 @@ test('enforces file, row, and column limits', () => {
 test('rejects inconsistent row widths and empty data', () => {
   assert.throws(() => previewPhoneCsv('phone,name\n123'), { code: 'inconsistent_row' })
   assert.throws(() => previewPhoneCsv('phone\n'), { code: 'no_data_rows' })
+})
+
+import { buildReconciliationPlan } from '../src/lib/reconciliation-plan.js'
+
+const reconciliationRow = (sourceRowKey, rowNumber, normalized, extra = {}) => ({
+  sourceRowKey, rowNumber, rawPhone: normalized, status: 'valid', normalized, ...extra,
+})
+
+test('reconciliation requires an approved batch', () => {
+  assert.throws(() => buildReconciliationPlan({ batchId: 'b1', batchStatus: 'preview_ready', rows: [] }), { code: 'batch_not_approved' })
+})
+
+test('reconciliation creates one contact candidate and preserves duplicate provenance', () => {
+  const plan = buildReconciliationPlan({
+    batchId: 'batch-1', batchStatus: 'approved',
+    rows: [reconciliationRow('row-2', 2, '+2348031234567'), reconciliationRow('row-3', 3, '+2348031234567')],
+  })
+  assert.equal(plan.summary.createContacts, 1)
+  assert.equal(plan.summary.linkBatchDuplicates, 1)
+  assert.equal(plan.summary.provenanceRowsToRecord, 2)
+  assert.equal(plan.rows[1].candidateSourceRowKey, 'row-2')
+  assert.equal(plan.writesPerformed, false)
+})
+
+test('reconciliation links existing contacts without overwriting details', () => {
+  const plan = buildReconciliationPlan({
+    batchId: 'batch-2', batchStatus: 'approved',
+    existingContacts: [{ id: 'contact-7', phone_e164: '+2348031234567' }],
+    rows: [reconciliationRow('row-2', 2, '+2348031234567', { suppliedName: 'New supplied name' })],
+  })
+  assert.equal(plan.rows[0].action, 'link_existing_contact')
+  assert.equal(plan.rows[0].contactId, 'contact-7')
+  assert.equal(plan.rows[0].suppliedNameForReview, 'New supplied name')
+})
+
+test('reconciliation flags multiple existing canonical records for manual review', () => {
+  const plan = buildReconciliationPlan({
+    batchId: 'batch-3', batchStatus: 'approved',
+    existingContacts: [
+      { id: 'contact-a', phone_e164: '+2348031234567' },
+      { id: 'contact-b', phone_e164: '+2348031234567' },
+    ],
+    rows: [reconciliationRow('row-2', 2, '+2348031234567')],
+  })
+  assert.equal(plan.rows[0].action, 'needs_manual_review')
+  assert.deepEqual(plan.rows[0].candidateContactIds, ['contact-a', 'contact-b'])
+})
+
+test('reconciliation skips unresolved rows and supports idempotent retries', () => {
+  const skipped = buildReconciliationPlan({
+    batchId: 'batch-4', batchStatus: 'approved',
+    rows: [{ sourceRowKey: 'row-2', rowNumber: 2, status: 'needs_review', normalized: null }],
+  })
+  assert.equal(skipped.summary.skippedForReview, 1)
+
+  const retried = buildReconciliationPlan({
+    batchId: 'batch-5', batchStatus: 'approved', importedRowKeys: ['row-2'],
+    rows: [reconciliationRow('row-2', 2, '+2348031234567')],
+  })
+  assert.equal(retried.rows[0].action, 'already_imported')
+  assert.equal(retried.rows[0].idempotencyKey, 'batch-5:row-2')
 })
