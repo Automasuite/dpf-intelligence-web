@@ -39,7 +39,7 @@ function WorkspaceApp({user,onSignOut}){
   setImportError('');setImportPreview(null);setImportRaw(null);setImportReviewed(false)
   try{
    if(!file.name.toLowerCase().endsWith('.csv'))throw new Error('Please select a .csv file.')
-   if(file.size>5*1024*1024)throw new Error('CSV exceeds the 5 MB upload limit.')
+   if(file.size>4*1024*1024)throw new Error('CSV exceeds the 4 MB upload limit.')
    const parsed=previewPhoneCsv(await file.text())
    setImportFileName(file.name);setImportRaw(parsed);setImportPreview(classifyImport(parsed,importCountry))
   }catch(error){setImportError(error.message||'Unable to read this CSV file.');setImportFileName('')}
@@ -74,7 +74,7 @@ function WorkspaceApp({user,onSignOut}){
     <div className="panel-head import-head"><div><div className="ws-eyebrow"><FileSpreadsheet size={14}/> LEAD VAULT · PHONE DATABASE</div><h2>Import contact records</h2><p>Upload a CSV, validate phone numbers and inspect duplicates before any database action.</p></div><div className="import-safety"><ShieldAlert size={15}/> Preview only · No database writes</div></div>
     <div className="import-controls">
      <label className="country-context">Country context <select value={importCountry} onChange={e=>changeImportCountry(e.target.value)}><option value="">Do not assume a country</option><option value="NG">Nigeria (+234)</option></select><small>Choose Nigeria only when the uploaded national-format numbers are known to be Nigerian. Numbers with + prefix are parsed internationally.</small></label>
-     <label className="upload-drop"><input type="file" accept=".csv,text/csv" onChange={handleImportFile}/><Upload size={20}/><b>Choose CSV file</b><span>Maximum 5 MB · Up to 10,000 rows · Phone column required</span></label>
+     <label className="upload-drop"><input type="file" accept=".csv,text/csv" onChange={handleImportFile}/><Upload size={20}/><b>Choose CSV file</b><span>Maximum 4 MB · Up to 10,000 rows · Phone column required</span></label>
     </div>
     {importError&&<div className="import-error"><AlertCircle size={16}/>{importError}</div>}
     {importPreview&&<div className="import-results">
