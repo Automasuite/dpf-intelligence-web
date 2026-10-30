@@ -38,6 +38,7 @@ function App(){
   setImportError('');setImportPreview(null);setImportRaw(null);setImportReviewed(false)
   try{
    if(!file.name.toLowerCase().endsWith('.csv'))throw new Error('Please select a .csv file.')
+   if(file.size>5*1024*1024)throw new Error('CSV exceeds the 5 MB upload limit.')
    const parsed=previewPhoneCsv(await file.text())
    setImportFileName(file.name);setImportRaw(parsed);setImportPreview(classifyImport(parsed,importCountry))
   }catch(error){setImportError(error.message||'Unable to read this CSV file.');setImportFileName('')}
