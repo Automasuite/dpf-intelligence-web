@@ -89,6 +89,8 @@ declare
   v_key text;
   v_event_type text := 'qualification_updated';
   v_summary text := 'Lead details updated by an authenticated workspace user.';
+  v_previous jsonb;
+  v_new jsonb;
 begin
   if p_owner_id is null or p_lead_id is null or jsonb_typeof(p_payload) <> 'object'
      or p_payload = '{}'::jsonb then
@@ -142,11 +144,16 @@ begin
     v_summary := 'Lead contact-permission status changed by an authenticated workspace user.';
   end if;
 
+  select coalesce(jsonb_object_agg(k, to_jsonb(v_before)->k), '{}'::jsonb)
+    into v_previous from jsonb_object_keys(p_payload) as keys(k);
+  select coalesce(jsonb_object_agg(k, to_jsonb(v_after)->k), '{}'::jsonb)
+    into v_new from jsonb_object_keys(p_payload) as keys(k);
+
   insert into public.dpf_lead_events (
     owner_id, lead_id, event_type, actor_type, summary, previous_value, new_value, requires_approval
   ) values (
     p_owner_id, v_after.id, v_event_type, 'human', v_summary,
-    to_jsonb(v_before), to_jsonb(v_after), false
+    v_previous, v_new, false
   );
   return to_jsonb(v_after);
 end;
