@@ -43,3 +43,9 @@ test('rejects numbers outside E.164 length limits', () => {
   const item = normalizePhone('+1234567')
   assert.equal(item.status, 'invalid')
 })
+
+test('rejects unsupported characters instead of silently extracting digits', () => {
+  const item = normalizePhone('buyer +2348031234567')
+  assert.equal(item.status, 'invalid')
+  assert.equal(item.reason, 'unsupported_characters')
+})
