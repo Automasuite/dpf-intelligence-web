@@ -1,6 +1,6 @@
 export const WORKSPACE_ROLE_PERMISSIONS = Object.freeze({
   owner: Object.freeze([
-    'contacts.read','leads.manage','batches.preview','batches.approve','batches.commit','batches.rollback',
+    'contacts.read','leads.manage','followups.manage','batches.preview','batches.approve','batches.commit','batches.rollback',
     'permissions.manage','suppressions.create','members.manage','contacts.export',
   ]),
   admin: Object.freeze([
