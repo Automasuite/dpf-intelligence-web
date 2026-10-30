@@ -54,3 +54,18 @@ jobs:
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/202610300001_dpf_lead_vault.sql
       - name: Verify RLS, grants, tenant isolation and provenance idempotency
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/postgres-migration-assertions.sql
+
+  production-build:
+    name: Vite production build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install current package dependencies
+        run: npm install --no-package-lock
+      - name: Build all configured application entry points
+        run: npm run build
