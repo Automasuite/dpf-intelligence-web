@@ -160,3 +160,23 @@ drop policy if exists "dpf_agent_runs_owner_update" on public.dpf_agent_runs;
 create policy "dpf_agent_runs_owner_update" on public.dpf_agent_runs for update to authenticated using ((select auth.uid()) = owner_id) with check ((select auth.uid()) = owner_id);
 
 -- No policies are granted to anon/public. Do not store secrets or unrestricted crawler payloads here.
+
+-- Explicit Data API privileges (Supabase 2026-10-30 default change).
+-- No anonymous access. RLS policies above remain the row-level authorization boundary.
+grant usage on schema public to authenticated, service_role;
+
+revoke all on table public.dpf_leads from anon;
+revoke all on table public.dpf_lead_events from anon;
+revoke all on table public.dpf_follow_up_tasks from anon;
+revoke all on table public.dpf_agent_runs from anon;
+
+grant select, insert, update, delete on table public.dpf_leads to authenticated;
+grant select, insert on table public.dpf_lead_events to authenticated;
+grant select, insert, update, delete on table public.dpf_follow_up_tasks to authenticated;
+grant select, insert, update on table public.dpf_agent_runs to authenticated;
+
+-- Backend service role privileges are server-side only; never expose its key in the browser.
+grant select, insert, update, delete on table public.dpf_leads to service_role;
+grant select, insert, update, delete on table public.dpf_lead_events to service_role;
+grant select, insert, update, delete on table public.dpf_follow_up_tasks to service_role;
+grant select, insert, update, delete on table public.dpf_agent_runs to service_role;
