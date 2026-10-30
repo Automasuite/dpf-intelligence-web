@@ -93,3 +93,29 @@ The membership migration and server permission helper establish this least-privi
 Unknown roles and actions are denied. This is a server-side policy baseline, not a claim that every corresponding endpoint is already implemented. Every future route must call the permission guard before privileged work and must still perform owner-scoped queries and audit logging. Reviewers can approve but cannot commit; an authorized owner or admin performs the commit as a separate action. This separates review from execution.
 
 Workspace membership is owner-scoped. The canonical owner_id on contact records remains the workspace owner's user ID; member user IDs must never be substituted for owner_id. Membership changes require a trusted, audited server operation and cannot be performed directly by authenticated browser clients.
+
+
+## Implemented server endpoints and activation gate
+
+- GET /api/lead-vault/session verifies the Supabase access token and requires at least one active workspace membership before the workspace UI renders.
+- POST /api/lead-vault/batches/:id/approve verifies the caller's active membership and the batches.approve permission, then calls the database approval RPC.
+- POST /api/lead-vault/batches/:id/commit verifies the caller's active membership and the batches.commit permission, then calls the transactional database commit RPC.
+- Both mutation routes require an Idempotency-Key (or X-Request-Id) header and validate the batch UUID.
+- Both mutation routes fail closed unless LEAD_VAULT_WRITES_ENABLED is exactly true.
+- Privileged database access is isolated in api/_lib/admin-client.js and reads SUPABASE_SERVICE_ROLE_KEY only on the server. It must never be exposed through VITE_ variables or returned by an API.
+- The approval RPC accepts owner/admin/reviewer roles. The commit RPC accepts owner/admin only. Both RPCs validate the active membership again inside PostgreSQL.
+
+## Remaining activation blockers
+
+The write kill switch must remain off until all of the following are complete:
+
+1. Implement durable batch preview creation and server-side CSV validation/persistence.
+2. Implement review/skip handling for unresolved rows and an immutable approval snapshot.
+3. Add API rate limiting and request-size controls for every mutation route.
+4. Add tested rollback and recovery operations.
+5. Configure server-side environment variables in the approved Vercel project, including SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY; the service-role key is server-only.
+6. Provision the initial owner membership through an approved administrative process.
+7. Complete live Supabase integration tests and backup/restore verification.
+8. Obtain explicit approval before applying any of the three pending SQL migrations or enabling the write kill switch.
+
+The current API routes are code on an isolated branch, not a deployed or active customer-data workflow. No customer data has been imported.
