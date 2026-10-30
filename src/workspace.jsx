@@ -54,7 +54,8 @@ function App(){
    <a className="ws-brand" href="/"><span className="ws-monogram">DPF</span><span><b>Digital Property Finder</b><small>INTELLIGENCE SYSTEM</small></span></a>
    <div className="side-label">WORKSPACE</div>
    <a className="side-link selected" href="#overview"><LayoutDashboard size={17}/>Overview</a>
-   <a className="side-link" href="#pipeline"><Workflow size={17}/>Lead pipeline <span className="side-count">{leads.length}</span></a>\n   <a className="side-link" href="#lead-vault-import"><Upload size={17}/>Import contacts</a>
+   <a className="side-link" href="#pipeline"><Workflow size={17}/>Lead pipeline <span className="side-count">{leads.length}</span></a>
+   <a className="side-link" href="#lead-vault-import"><Upload size={17}/>Import contacts</a>
    <a className="side-link" href="#followups"><CalendarClock size={17}/>Follow-ups</a>
    <a className="side-link" href="#matching"><Building2 size={17}/>Property matching</a>
    <div className="side-label">INTELLIGENCE</div>
