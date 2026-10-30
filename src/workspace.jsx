@@ -43,7 +43,8 @@ function WorkspaceApp({user,session,onSignOut}){
  const stageFromDb={signal:'Signal',intent:'Intent',qualified:'Qualified',matched:'Matched',conversation:'Conversation',inspection:'Inspection',transaction:'Transaction',closed_won:'Transaction',closed_lost:'Transaction',nurture:'Signal'}
  function fromDatabase(row){return {id:row.id,name:row.full_name,phone:row.phone,source:row.source,budget:row.budget_amount||'',location:row.preferred_location||'',propertyType:row.property_type||'',timeline:row.buying_timeline||'',notes:row.motivation||row.risk_or_objection||'',stage:stageFromDb[row.stage]||'Signal',created:new Date(row.created_at).toLocaleDateString('en-NG'),score:row.stage==='qualified'||row.stage==='matched'?75:35,recordStatus:row.record_status}}
  async function loadLeads(){setLoadingLeads(true);try{const response=await fetch('/api/lead-vault/leads',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Unable to load saved leads');setLeads((result.leads||[]).map(fromDatabase))}catch(error){setNotice(error.message||'Could not load saved leads.')}finally{setLoadingLeads(false)}}
- useEffect(()=>{void loadLeads()},[session.access_token])
+ async function loadFollowups(){setLoadingFollowups(true);try{const response=await fetch('/api/lead-vault/followups?view=all&limit=150',{headers:{Authorization:'Bearer '+session.access_token},cache:'no-store'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Unable to load follow-up tasks');setFollowups(result.tasks||[])}catch(error){setNotice(error.message||'Could not load follow-up tasks.')}finally{setLoadingFollowups(false)}}
+ useEffect(()=>{void loadLeads();void loadFollowups()},[session.access_token])
  async function handleImportFile(event){
   const file=event.target.files?.[0]
   if(!file)return
