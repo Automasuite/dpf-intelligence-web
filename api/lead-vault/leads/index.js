@@ -44,7 +44,7 @@ export default async function handler(req,res){
   res.setHeader('Cache-Control','no-store')
   res.setHeader('X-Content-Type-Options','nosniff')
   res.setHeader('Referrer-Policy','no-referrer')
-  if(!['GET','POST'].includes(req.method)){res.setHeader('Allow','GET, POST');return fail(res,405,'method_not_allowed')}
+  if(!['GET','POST','PATCH'].includes(req.method)){res.setHeader('Allow','GET, POST, PATCH');return fail(res,405,'method_not_allowed')}
   const access=await requireWorkspacePermission(req,req.method==='GET'?'contacts.read':'leads.manage')
   if(access.error)return fail(res,access.status,access.error)
   const membership=access.memberships[0]
@@ -59,19 +59,35 @@ export default async function handler(req,res){
   }
 
 
-  const payload=cleanPayload(req.body,true)
-  if(!payload)return fail(res,400,'invalid_lead_payload')
-  payload.owner_id=membership.owner_id
-  const {data,error}=await supabase.from('dpf_leads').insert(payload).select(SELECT).single()
-  if(error)return fail(res,400,'lead_create_failed')
-  const {error:eventError}=await supabase.from('dpf_lead_events').insert({
-    owner_id:membership.owner_id,lead_id:data.id,event_type:'created',actor_type:'human',
-    summary:'Lead record created by an authenticated workspace user.',
-    new_value:{stage:data.stage,source:data.source},requires_approval:false,
-  })
-  if(eventError){
-    await supabase.from('dpf_leads').delete().eq('id',data.id).eq('owner_id',membership.owner_id)
-    return fail(res,500,'lead_audit_write_failed')
+  if(req.method==='POST'){
+    const payload=cleanPayload(req.body,true)
+    if(!payload)return fail(res,400,'invalid_lead_payload')
+    const {data,error}=await supabase.rpc('dpf_create_lead_with_event',{
+      p_owner_id:membership.owner_id,
+      p_payload:payload,
+    })
+    if(error){
+      if(error.code==='22023'||error.code==='22P02')return fail(res,400,'invalid_lead_payload')
+      return fail(res,500,'lead_create_failed')
+    }
+    return res.status(201).json({ok:true,lead:data})
   }
-  return res.status(201).json({ok:true,lead:data})
+
+  const leadId=req.query?.id
+  if(typeof leadId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(leadId)){
+    return fail(res,400,'invalid_lead_id')
+  }
+  const payload=cleanPayload(req.body,false)
+  if(!payload||Object.keys(payload).length===0)return fail(res,400,'invalid_lead_payload')
+  const {data,error}=await supabase.rpc('dpf_update_lead_with_event',{
+    p_owner_id:membership.owner_id,
+    p_lead_id:leadId,
+    p_payload:payload,
+  })
+  if(error){
+    if(error.code==='22023'||error.code==='22P02')return fail(res,400,'invalid_lead_payload')
+    if(error.code==='P0002')return fail(res,404,'lead_not_found')
+    return fail(res,500,'lead_update_failed')
+  }
+  return res.status(200).json({ok:true,lead:data})
 }
