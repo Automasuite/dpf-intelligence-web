@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { readBearerToken } from './bearer-token.js'
+import { canPerformWorkspaceAction } from './role-permissions.js'
 
 export { readBearerToken } from './bearer-token.js'
 
@@ -46,6 +47,18 @@ export async function requireWorkspaceRole(req, allowedRoles = []) {
   if (result.error) return result
 
   const permitted = result.memberships.filter(member => allowedRoles.includes(member.role))
+  if (!permitted.length) return { error: 'forbidden', status: 403 }
+
+  return { user: result.user, memberships: permitted }
+}
+
+export async function requireWorkspacePermission(req, action) {
+  const result = await getAuthenticatedUser(req)
+  if (result.error) return result
+
+  const permitted = result.memberships.filter(member =>
+    canPerformWorkspaceAction(member.role, action)
+  )
   if (!permitted.length) return { error: 'forbidden', status: 403 }
 
   return { user: result.user, memberships: permitted }
