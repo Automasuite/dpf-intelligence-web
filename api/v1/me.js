@@ -7,15 +7,14 @@ export default async function handler(req, res) {
   const auth = await requireUser(req, res);
   if (!auth) return;
   if (!process.env.DATABASE_URL) return send(res, 503, { ok: false, error: 'database_not_configured' });
-
   try {
     const result = await getPool().query(
-      'SELECT core.upsert_clerk_user($1, NULL, NULL) AS user_id',
-      [auth.clerkSubject],
+      'SELECT core.upsert_clerk_user($1, $2, $3) AS user_id',
+      [auth.clerkSubject, auth.email, auth.fullName],
     );
     const userId = result.rows[0]?.user_id;
     if (!userId) return send(res, 500, { ok: false, error: 'user_provisioning_failed' });
-    return send(res, 200, { ok: true, user: { id: userId } });
+    return send(res, 200, { ok: true, user: { id: userId, email: auth.email, fullName: auth.fullName } });
   } catch {
     return send(res, 503, { ok: false, error: 'identity_service_unavailable' });
   }
